@@ -14,7 +14,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=['PyQt6.QtCore', 'PyQt6.QtGui', 'PyQt6.QtWidgets'],
+    hiddenimports=['PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -30,22 +30,26 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='FinancialDashboard',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=False,
-    disable_windowed_traceback=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
+    target_arch='arm',
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='FinancialDashboard'
 )
 
 # For Linux, create a .desktop file for the application
@@ -54,15 +58,12 @@ if sys.platform.startswith('linux'):
     desktop_file = '''[Desktop Entry]
 Name=Financial Dashboard
 Comment=A Financial Dashboard Application
-Exec={}/FinancialDashboard
-Icon={}/icon.png
+Exec=/usr/local/bin/financial-dashboard/FinancialDashboard
+Icon=/usr/local/bin/financial-dashboard/icon.png
 Terminal=false
 Type=Application
 Categories=Finance;
-'''.format('${INSTALL_PATH}', '${INSTALL_PATH}')
+'''
     
     with open('FinancialDashboard.desktop', 'w') as f:
-        f.write(desktop_file)
-    
-    # Add the .desktop file to datas
-    a.datas += [('FinancialDashboard.desktop', 'FinancialDashboard.desktop', 'DATA')] 
+        f.write(desktop_file) 

@@ -1,8 +1,8 @@
-from PyQt6.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout, 
+from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout, 
                             QGraphicsDropShadowEffect, QHBoxLayout, QVBoxLayout, 
                             QFrame, QStackedWidget, QPushButton)
-from PyQt6.QtGui import QColor, QFont, QPainter, QPixmap, QIcon
-from PyQt6.QtCore import Qt, QTime, QTimer, QPropertyAnimation, QEasingCurve, QSize, QPoint, QParallelAnimationGroup
+from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap, QIcon
+from PyQt5.QtCore import Qt, QTime, QTimer, QPropertyAnimation, QEasingCurve, QSize, QPoint, QParallelAnimationGroup
 import os
 import sys
 
