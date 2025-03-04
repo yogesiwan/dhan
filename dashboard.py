@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout, 
                             QGraphicsDropShadowEffect, QHBoxLayout, QVBoxLayout, 
-                            QFrame, QStackedWidget, QPushButton)
+                            QFrame, QStackedWidget, QPushButton, QScrollArea)
 from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap, QIcon
 from PyQt5.QtCore import Qt, QTime, QTimer, QPropertyAnimation, QEasingCurve, QSize, QPoint, QParallelAnimationGroup
 import os
@@ -104,6 +104,57 @@ class PageContainer(QWidget):
         self.grid_layout.setSpacing(15)
         self.main_layout.addLayout(self.grid_layout)
         
+        # Navigation buttons layout
+        nav_buttons_layout = QHBoxLayout()
+        nav_buttons_layout.setSpacing(20)
+        nav_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Previous button
+        self.prev_button = QPushButton("← Previous")
+        self.prev_button.setFixedSize(140, 40)
+        self.prev_button.setFont(QFont("Segoe UI", 12))
+        self.prev_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 255, 255, 0.2);
+                color: white;
+                border: none;
+                border-radius: 20px;
+                padding: 8px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.3);
+            }
+            QPushButton:pressed {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+        """)
+        
+        # Next button
+        self.next_button = QPushButton("Next →")
+        self.next_button.setFixedSize(120, 40)
+        self.next_button.setFont(QFont("Segoe UI", 12))
+        self.next_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 255, 255, 0.2);
+                color: white;
+                border: none;
+                border-radius: 20px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.3);
+            }
+            QPushButton:pressed {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+        """)
+        
+        nav_buttons_layout.addWidget(self.prev_button)
+        nav_buttons_layout.addWidget(self.next_button)
+        
+        # Add navigation buttons layout
+        self.main_layout.addLayout(nav_buttons_layout)
+        
         # Navigation dots
         self.nav_layout = QHBoxLayout()
         self.nav_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -166,6 +217,133 @@ class StocksPage(PageContainer):
             row, col = card_data["pos"]
             self.grid_layout.addWidget(card, row, col)
 
+class NewsCard(QFrame):
+    def __init__(self, title, description, time, parent=None):
+        super().__init__(parent)
+        self.setObjectName("newsCard")
+        self.setStyleSheet("""
+            QFrame#newsCard {
+                background-color: rgba(40, 50, 80, 0.7);
+                border-radius: 10px;
+                padding: 15px;
+                margin: 5px;
+            }
+        """)
+        
+        # Add drop shadow
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        shadow.setOffset(0, 0)
+        self.setGraphicsEffect(shadow)
+        
+        # Setup layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(10)
+        
+        # Title
+        title_label = QLabel(title)
+        title_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        title_label.setStyleSheet("color: white;")
+        title_label.setWordWrap(True)
+        layout.addWidget(title_label)
+        
+        # Description
+        desc_label = QLabel(description)
+        desc_label.setFont(QFont("Segoe UI", 12))
+        desc_label.setStyleSheet("color: rgba(255, 255, 255, 0.8);")
+        desc_label.setWordWrap(True)
+        layout.addWidget(desc_label)
+        
+        # Time
+        time_label = QLabel(time)
+        time_label.setFont(QFont("Segoe UI", 10))
+        time_label.setStyleSheet("color: rgba(255, 255, 255, 0.6);")
+        time_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(time_label)
+
+class NewsPage(PageContainer):
+    def __init__(self, parent=None):
+        super().__init__("Market News", parent)
+        
+        # Create scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: rgba(255, 255, 255, 0.1);
+                width: 10px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: rgba(255, 255, 255, 0.3);
+                min-height: 20px;
+                border-radius: 5px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+        """)
+        
+        # Create container widget for scroll area
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setSpacing(15)
+        
+        # Sample news data
+        news_data = [
+            {
+                "title": "Market Rally Continues: Sensex, Nifty Hit New Highs",
+                "description": "Indian markets continued their bullish trend with both Sensex and Nifty touching new all-time highs, driven by strong institutional buying and positive global cues.",
+                "time": "2 hours ago"
+            },
+            {
+                "title": "RBI Maintains Repo Rate, Focuses on Growth",
+                "description": "The Reserve Bank of India kept the repo rate unchanged at 6.5% in its latest monetary policy meeting, maintaining its focus on supporting economic growth while keeping inflation in check.",
+                "time": "4 hours ago"
+            },
+            {
+                "title": "IT Sector Shows Strong Recovery",
+                "description": "Major IT companies reported better-than-expected Q3 results, indicating a strong recovery in the technology sector. TCS and Infosys lead the gains.",
+                "time": "6 hours ago"
+            },
+            {
+                "title": "FII Investment Reaches 6-Month High",
+                "description": "Foreign Institutional Investors (FIIs) have pumped in over ₹25,000 crore in Indian equities this month, marking the highest monthly inflow in the last six months.",
+                "time": "8 hours ago"
+            },
+            {
+                "title": "New IPOs Set to Hit Market",
+                "description": "Several companies have filed their draft red herring prospectus (DRHP) with SEBI, indicating a busy season ahead for the primary market.",
+                "time": "10 hours ago"
+            }
+        ]
+        
+        # Create and add news cards
+        for news in news_data:
+            card = NewsCard(
+                news["title"],
+                news["description"],
+                news["time"]
+            )
+            scroll_layout.addWidget(card)
+        
+        # Add stretch to push cards to the top
+        scroll_layout.addStretch()
+        
+        # Set scroll content
+        scroll_area.setWidget(scroll_content)
+        
+        # Add scroll area to main layout
+        self.grid_layout.addWidget(scroll_area, 0, 0, 1, 3)
+
 class GlassmorphicUI(QWidget):
     def __init__(self):
         super().__init__()
@@ -183,10 +361,22 @@ class GlassmorphicUI(QWidget):
         # Create pages
         self.indices_page = IndicesPage()
         self.stocks_page = StocksPage()
+        self.news_page = NewsPage()
         
         # Add pages to stacked widget
         self.stacked_widget.addWidget(self.indices_page)
         self.stacked_widget.addWidget(self.stocks_page)
+        self.stacked_widget.addWidget(self.news_page)
+        
+        # Connect navigation buttons
+        self.indices_page.next_button.clicked.connect(lambda: self.animate_page_change(1))
+        self.indices_page.prev_button.clicked.connect(lambda: self.animate_page_change(2))
+        
+        self.stocks_page.next_button.clicked.connect(lambda: self.animate_page_change(2))
+        self.stocks_page.prev_button.clicked.connect(lambda: self.animate_page_change(0))
+        
+        self.news_page.next_button.clicked.connect(lambda: self.animate_page_change(0))
+        self.news_page.prev_button.clicked.connect(lambda: self.animate_page_change(1))
         
         # Add navigation dots to each page
         self.setup_navigation()
@@ -284,6 +474,9 @@ class GlassmorphicUI(QWidget):
             self.animate_page_change(page_index)
     
     def animate_page_change(self, new_page):
+        if new_page == self.current_page or self.animation_in_progress:
+            return
+            
         # Set animation in progress flag
         self.animation_in_progress = True
         
@@ -307,21 +500,21 @@ class GlassmorphicUI(QWidget):
             new_widget.move(direction * screen_width, 0)
             
             # Create a parallel animation group for smoother synchronization
-            animation_group = QParallelAnimationGroup()
+            animation_group = QParallelAnimationGroup(self)
             
             # Create animation for current widget
-            current_anim = QPropertyAnimation(current_widget, b"pos")
-            current_anim.setDuration(450)  # Longer, smoother animation
+            current_anim = QPropertyAnimation(current_widget, b"pos", self)
+            current_anim.setDuration(300)  # Faster animation
             current_anim.setStartValue(QPoint(0, 0))
             current_anim.setEndValue(QPoint(-direction * screen_width, 0))
-            current_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)  # Smoother curve
+            current_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
             
             # Create animation for new widget
-            new_anim = QPropertyAnimation(new_widget, b"pos")
-            new_anim.setDuration(450)  # Longer, smoother animation
+            new_anim = QPropertyAnimation(new_widget, b"pos", self)
+            new_anim.setDuration(300)  # Faster animation
             new_anim.setStartValue(QPoint(direction * screen_width, 0))
             new_anim.setEndValue(QPoint(0, 0))
-            new_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)  # Smoother curve
+            new_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
             
             # Add animations to the group
             animation_group.addAnimation(current_anim)

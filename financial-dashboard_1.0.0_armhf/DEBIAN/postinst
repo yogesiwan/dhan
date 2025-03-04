@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+# Update desktop database
+update-desktop-database

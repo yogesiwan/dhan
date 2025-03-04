@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Financial Dashboard
+Comment=A Financial Dashboard Application
+Exec=/usr/local/bin/financial-dashboard/FinancialDashboard
+Icon=/usr/local/bin/financial-dashboard/icon.png
+Terminal=false
+Type=Application
+Categories=Finance;
