@@ -1,0 +1,10 @@
+Package: financial-dashboard
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Your Name <your.email@example.com>
+Description: Financial Dashboard Application
+ A PyQt6-based financial dashboard application
+ that displays market indices and stock information.
+Depends: libc6 
