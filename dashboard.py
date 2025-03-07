@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout, 
                             QGraphicsDropShadowEffect, QHBoxLayout, QVBoxLayout, 
-                            QFrame, QStackedWidget, QPushButton, QScrollArea)
-from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap, QIcon, QPen, QTransform, QKeyEvent
+                            QFrame, QStackedWidget, QPushButton, QScrollArea, QSizePolicy)
+from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap, QIcon, QPen, QTransform, QKeyEvent, QLinearGradient, QPainterPath
 from PyQt5.QtCore import Qt, QTime, QTimer, QPropertyAnimation, QEasingCurve, QSize, QPoint, QParallelAnimationGroup, QRectF, pyqtProperty
 import os
 import sys
@@ -27,12 +27,12 @@ class GlassmorphicCard(QFrame):
             QFrame#glassmorphicCard {
                 background-color: rgba(40, 50, 80, 0.5);
                 border-radius: 10px;
-                padding: 15px;
+                padding: 10px;
             }
         """)
         
-        # Make the card longer to accommodate percentage labels
-        self.setMinimumHeight(180)  # Increased minimum height
+        # Set size policy to expand while maintaining 2:1 ratio
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # Add drop shadow
         shadow = QGraphicsDropShadowEffect()
@@ -84,126 +84,67 @@ class GlassmorphicCard(QFrame):
     def setup_front_side(self):
         # Setup layout for front side
         layout = QVBoxLayout(self.front_widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(5)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
         
-        # Title with icon - centered
+        # Title with logo - left aligned
         title_layout = QHBoxLayout()
-        title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
-        # Add appropriate icon based on title
-        icon_label = QLabel()
-        if "Nifty" in self.title:
-            icon_label.setText("📈")
-        elif "Bank" in self.title:
-            icon_label.setText("🏦")
-        elif "VIX" in self.title:
-            icon_label.setText("📊")
-        elif "Reliance" in self.title:
-            icon_label.setText("🏭")
-        elif "TCS" in self.title or "Infosys" in self.title:
-            icon_label.setText("💻")
-        elif "HDFC" in self.title:
-            icon_label.setText("🏦")
-        elif "Airtel" in self.title:
-            icon_label.setText("📱")
-        elif "ITC" in self.title:
-            icon_label.setText("🏢")
-        else:
-            icon_label.setText("📊")
-            
-        icon_label.setFont(QFont("Segoe UI", 17))
-        title_layout.addWidget(icon_label)
+        # Add company logo next to title
+        logo_label = QLabel()
+        logo_path = f"logos/unique_{hash(self.title) % 83 + 1}.png"  # Map title to a logo file
+        if os.path.exists(logo_path):
+            logo_pixmap = QPixmap(logo_path)
+            logo_label.setPixmap(logo_pixmap.scaled(24, 24, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        title_layout.addWidget(logo_label)
         
-        # Title - make stock names 20% larger
-        title_font_size = 17
+        # Add spacing between logo and title
+        title_layout.addSpacing(8)
+        
+        # Title - make stock names 20% larger but with larger base size
+        title_font_size = 17  # Increased from 14 to make it 20% larger
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
-            title_font_size = int(title_font_size * 1.2)  # 20% larger for stock names
+            title_font_size = int(title_font_size * 1.2)
             
         title_label = QLabel(self.title)
         title_label.setFont(QFont("Segoe UI", title_font_size, QFont.Weight.Bold))
         title_label.setStyleSheet("color: white;")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         title_layout.addWidget(title_label)
+        title_layout.addStretch()
         
         layout.addLayout(title_layout)
         
-        # Value - centered
+        # Add spacing to push price down by 30%
+        layout.addSpacing(30)
+        
+        # Value - left aligned and larger
         value_label = QLabel(self.value)
-        value_label.setFont(QFont("Segoe UI", 17, QFont.Weight.Bold))
+        value_label.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         value_label.setStyleSheet("color: white;")
-        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        value_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(value_label)
         
-        # Change with icon and mini graph - keep original position
+        # Add stretch to push change info to bottom
+        layout.addStretch()
+        
+        # Change with icon at the bottom
         change_layout = QHBoxLayout()
+        change_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
-        change_icon = "↗" if self.change_value >= 0 else "↘"
+        # Change label with bolder font but smaller size
+        change_label = QLabel(f"{self.change}")
+        change_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        change_label.setStyleSheet(f"color: {self.change_color}; font-weight: bold;")
         
-        # Change label
-        change_label = QLabel(f"{self.change} {change_icon}")
-        change_label.setFont(QFont("Segoe UI", 14))
-        change_label.setStyleSheet(f"color: {self.change_color};")
+        # Use PNG images for arrows with smaller size
+        arrow_label = QLabel()
+        arrow_pixmap = QPixmap(resource_path("up_arrow.png" if self.change_value >= 0 else "down_arrow.png"))
+        arrow_label.setPixmap(arrow_pixmap.scaled(12, 12, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        
         change_layout.addWidget(change_label)
-        
-        # Add mini graph
-        graph_widget = QFrame()
-        graph_widget.setFixedSize(60, 20)
-        graph_widget.setStyleSheet(f"background-color: transparent;")
-        
-        # Store change value for painting
-        graph_widget.change_value = self.change_value
-        graph_widget.change_color = self.change_color
-        
-        # Custom paint method for graph
-        def paintEvent(event):
-            painter = QPainter(graph_widget)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            
-            # Set pen color based on change
-            painter.setPen(QColor(self.change_color))
-            
-            # Draw mini graph
-            width = graph_widget.width()
-            height = graph_widget.height()
-            mid_y = int(height / 2)  # Convert to int
-            
-            # Generate some random-looking but consistent points for the graph
-            points = []
-            
-            # Start point
-            points.append(QPoint(0, mid_y))
-            
-            # Generate middle points with some variation
-            import random
-            random.seed(abs(hash(self.title)))  # Use title as seed for consistent randomness
-            
-            num_points = 5
-            for i in range(1, num_points):
-                x = int(i * width / num_points)
-                
-                # Make the line trend up or down based on change value
-                trend = -1 if self.change_value >= 0 else 1  # Negative because y-axis is inverted
-                variation = random.randint(-3, 3)  # Small random variation
-                
-                # Calculate y with more pronounced trend at the end
-                factor = (i / num_points) * abs(min(max(self.change_value, -10), 10)) / 2
-                y = int(mid_y + trend * factor * height / 4 + variation)  # Convert to int
-                
-                points.append(QPoint(x, y))
-            
-            # End point - make it clearly up or down based on change
-            end_y = int(mid_y - (height / 3)) if self.change_value >= 0 else int(mid_y + (height / 3))  # Convert to int
-            points.append(QPoint(width, end_y))
-            
-            # Draw the line
-            for i in range(1, len(points)):
-                painter.drawLine(points[i-1], points[i])
-        
-        # Assign custom paint event
-        graph_widget.paintEvent = paintEvent
-        
-        change_layout.addWidget(graph_widget)
+        change_layout.addWidget(arrow_label)
         change_layout.addStretch()
         
         layout.addLayout(change_layout)
@@ -404,6 +345,12 @@ class GlassmorphicCard(QFrame):
         # Let the normal painting happen
         super().paintEvent(event)
 
+    def resizeEvent(self, event):
+        # Maintain 2:1 ratio during resize
+        width = event.size().width()
+        self.setFixedHeight(width // 2)
+        super().resizeEvent(event)
+
 class NewsCard(QFrame):
     def __init__(self, title, description, time, parent=None):
         super().__init__(parent)
@@ -474,33 +421,235 @@ class ContentWidget(QWidget):
         super().__init__(parent)
         self.title = title
         
-        # Setup layout
-        self.layout = QGridLayout(self)
-        self.layout.setSpacing(15)
+        # Create a container widget to center the grid and control its size
+        container = QWidget()
+        container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Main layout for the widget
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add container to main layout with alignment
+        main_layout.addWidget(container, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # Setup grid layout for the container
+        self.layout = QGridLayout(container)
+        self.layout.setSpacing(20)  # Keep consistent spacing between cards
+        
+        # Set the container to take 90% of the parent width
+        container.setMaximumWidth(int(QApplication.primaryScreen().size().width() * 0.90))
+        
+        # Set equal margins for better spacing
+        self.layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Force uniform column widths
+        self.layout.setColumnMinimumWidth(0, 0)
+        self.layout.setColumnMinimumWidth(1, 0)
+        self.layout.setColumnMinimumWidth(2, 0)
+        self.layout.setColumnStretch(0, 1)
+        self.layout.setColumnStretch(1, 1)
+        self.layout.setColumnStretch(2, 1)
 
 class IndicesContent(ContentWidget):
     def __init__(self, parent=None):
         super().__init__("NSE Indices", parent)
         
-        # Card data for Indices page
-        cards_data = [
-            {"title": "Nifty 50", "value": "₹ 25,426.25", "change": "0.79%", "pos": (0, 0)},
-            {"title": "Fin Nifty", "value": "₹ 24,426.25", "change": "0.29%", "pos": (0, 1)},
-            {"title": "Bank Nifty", "value": "₹ 51,460.25", "change": "0.08%", "pos": (0, 2)},
-            {"title": "Nifty Midcap 50", "value": "₹ 15,426.25", "change": "0.79%", "pos": (1, 0)},
-            {"title": "Nifty Smallcap 50", "value": "₹ 9,426.25", "change": "0.79%", "pos": (1, 1)},
-            {"title": "India VIX", "value": "₹ 786.0", "change": "-0.79%", "pos": (1, 2)}
+        # Create a stacked widget for multiple screens
+        self.screens_stack = QStackedWidget()
+        self.layout.addWidget(self.screens_stack, 0, 0, 1, 3)
+        
+        # NSE Indices data - 54 indices (9 screens × 6 cards)
+        indices_data = [
+            # Screen 1
+            [
+                {"title": "Nifty 50", "value": "₹ 22,419.95", "change": "0.79%"},
+                {"title": "Nifty Bank", "value": "₹ 47,580.30", "change": "0.82%"},
+                {"title": "Nifty IT", "value": "₹ 37,890.15", "change": "1.12%"},
+                {"title": "Nifty Auto", "value": "₹ 19,875.40", "change": "0.45%"},
+                {"title": "Nifty FMCG", "value": "₹ 52,640.75", "change": "0.28%"},
+                {"title": "Nifty Pharma", "value": "₹ 15,980.60", "change": "-0.32%"}
+            ],
+            # Screen 2
+            [
+                {"title": "Nifty Metal", "value": "₹ 7,890.25", "change": "1.45%"},
+                {"title": "Nifty Media", "value": "₹ 2,340.85", "change": "-0.78%"},
+                {"title": "Nifty Realty", "value": "₹ 890.45", "change": "0.92%"},
+                {"title": "Nifty PSU Bank", "value": "₹ 4,570.30", "change": "1.23%"},
+                {"title": "Nifty Private Bank", "value": "₹ 23,780.55", "change": "0.67%"},
+                {"title": "Nifty Energy", "value": "₹ 34,560.90", "change": "-0.45%"}
+            ],
+            # Screen 3
+            [
+                {"title": "Nifty Financial Services", "value": "₹ 19,870.35", "change": "0.56%"},
+                {"title": "Nifty Consumer Durables", "value": "₹ 31,240.80", "change": "-0.23%"},
+                {"title": "Nifty Oil & Gas", "value": "₹ 12,450.65", "change": "0.89%"},
+                {"title": "Nifty Healthcare", "value": "₹ 9,780.40", "change": "0.34%"},
+                {"title": "Nifty PSE", "value": "₹ 5,670.25", "change": "-0.67%"},
+                {"title": "Nifty Infrastructure", "value": "₹ 6,890.15", "change": "0.78%"}
+            ],
+            # Screen 4
+            [
+                {"title": "Nifty MNC", "value": "₹ 21,340.75", "change": "0.45%"},
+                {"title": "Nifty Services Sector", "value": "₹ 27,890.60", "change": "-0.34%"},
+                {"title": "Nifty India Digital", "value": "₹ 8,970.30", "change": "1.56%"},
+                {"title": "Nifty India Consumption", "value": "₹ 11,230.85", "change": "0.23%"},
+                {"title": "Nifty CPSE", "value": "₹ 3,450.40", "change": "-0.89%"},
+                {"title": "Nifty India Manufacturing", "value": "₹ 4,560.95", "change": "0.67%"}
+            ],
+            # Screen 5
+            [
+                {"title": "Nifty Midcap 50", "value": "₹ 12,780.45", "change": "0.91%"},
+                {"title": "Nifty Midcap 100", "value": "₹ 15,670.30", "change": "-0.45%"},
+                {"title": "Nifty Smallcap 50", "value": "₹ 5,890.65", "change": "1.23%"},
+                {"title": "Nifty Smallcap 100", "value": "₹ 7,450.20", "change": "0.78%"},
+                {"title": "Nifty Midcap Liquid 15", "value": "₹ 9,230.75", "change": "-0.56%"},
+                {"title": "Nifty India Defence", "value": "₹ 6,780.90", "change": "1.12%"}
+            ],
+            # Screen 6
+            [
+                {"title": "Nifty Alpha 50", "value": "₹ 18,920.35", "change": "0.34%"},
+                {"title": "Nifty50 Value 20", "value": "₹ 13,450.80", "change": "-0.67%"},
+                {"title": "Nifty50 Equal Weight", "value": "₹ 16,780.65", "change": "0.89%"},
+                {"title": "Nifty100 Equal Weight", "value": "₹ 14,560.40", "change": "0.45%"},
+                {"title": "Nifty100 Low Volatility 30", "value": "₹ 11,890.25", "change": "-0.23%"},
+                {"title": "Nifty Alpha Low-Volatility 30", "value": "₹ 8,670.60", "change": "1.34%"}
+            ],
+            # Screen 7
+            [
+                {"title": "Nifty200 Quality 30", "value": "₹ 17,890.30", "change": "0.67%"},
+                {"title": "Nifty100 Quality 30", "value": "₹ 15,450.85", "change": "-0.45%"},
+                {"title": "Nifty50 Dividend Points", "value": "₹ 12,670.40", "change": "0.91%"},
+                {"title": "Nifty Dividend Opportunities 50", "value": "₹ 9,890.95", "change": "0.23%"},
+                {"title": "Nifty Growth Sectors 15", "value": "₹ 7,450.20", "change": "-0.78%"},
+                {"title": "Nifty100 ESG", "value": "₹ 5,670.75", "change": "1.12%"}
+            ],
+            # Screen 8
+            [
+                {"title": "Nifty100 Enhanced ESG", "value": "₹ 14,560.30", "change": "0.45%"},
+                {"title": "Nifty200 Momentum 30", "value": "₹ 11,890.85", "change": "-0.34%"},
+                {"title": "Nifty Commodities", "value": "₹ 8,970.40", "change": "1.23%"},
+                {"title": "Nifty India Manufacturing", "value": "₹ 6,780.95", "change": "0.56%"},
+                {"title": "Nifty Microcap 250", "value": "₹ 4,560.20", "change": "-0.89%"},
+                {"title": "Nifty Total Market", "value": "₹ 3,450.75", "change": "0.67%"}
+            ],
+            # Screen 9
+            [
+                {"title": "Nifty500 Value 50", "value": "₹ 13,670.30", "change": "0.91%"},
+                {"title": "Nifty Next 50", "value": "₹ 10,890.85", "change": "-0.45%"},
+                {"title": "Nifty100 Liquid 15", "value": "₹ 8,450.40", "change": "1.23%"},
+                {"title": "Nifty MidSmallcap 400", "value": "₹ 6,780.95", "change": "0.34%"},
+                {"title": "Nifty200 Alpha 30", "value": "₹ 4,560.20", "change": "-0.67%"},
+                {"title": "India VIX", "value": "₹ 786.0", "change": "-0.79%"}
+            ]
         ]
         
-        # Create and add cards
-        for card_data in cards_data:
-            card = GlassmorphicCard(
-                card_data["title"], 
-                card_data["value"], 
-                card_data["change"]
-            )
-            row, col = card_data["pos"]
-            self.layout.addWidget(card, row, col)
+        # Create screens and add cards
+        for screen_index, screen_data in enumerate(indices_data):
+            # Create a widget for this screen
+            screen = QWidget()
+            screen_layout = QGridLayout(screen)
+            screen_layout.setSpacing(20)
+            
+            # Add cards to the screen
+            for card_index, card_data in enumerate(screen_data):
+                card = GlassmorphicCard(
+                    card_data["title"],
+                    card_data["value"],
+                    card_data["change"]
+                )
+                row = card_index // 3
+                col = card_index % 3
+                screen_layout.addWidget(card, row, col)
+            
+            # Set equal column and row stretches
+            for i in range(3):
+                screen_layout.setColumnStretch(i, 1)
+            for i in range(2):
+                screen_layout.setRowStretch(i, 1)
+            
+            # Add screen to stacked widget
+            self.screens_stack.addWidget(screen)
+        
+        # Add swipe navigation
+        self.current_screen = 0
+        self.screens_stack.installEventFilter(self)
+        self.old_pos = None
+        self.animation_in_progress = False  # Add flag to track animation state
+    
+    def eventFilter(self, obj, event):
+        if obj == self.screens_stack:
+            if event.type() == event.Type.MouseButtonPress:
+                # Only start new swipe if no animation is in progress
+                if not self.animation_in_progress:
+                    self.old_pos = event.pos()
+                return True
+            
+            elif event.type() == event.Type.MouseButtonRelease:
+                if self.old_pos is not None and not self.animation_in_progress:
+                    delta = event.pos().x() - self.old_pos.x()
+                    if abs(delta) > 50:  # Reduced minimum swipe distance for better responsiveness
+                        if delta > 0 and self.current_screen > 0:
+                            self.change_screen(self.current_screen - 1)
+                        elif delta < 0 and self.current_screen < self.screens_stack.count() - 1:
+                            self.change_screen(self.current_screen + 1)
+                    self.old_pos = None
+                return True
+            
+        return super().eventFilter(obj, event)
+    
+    def change_screen(self, index):
+        if index != self.current_screen and not self.animation_in_progress:
+            # Set animation flag
+            self.animation_in_progress = True
+            
+            # Animate screen change
+            direction = 1 if index > self.current_screen else -1
+            current_widget = self.screens_stack.currentWidget()
+            new_widget = self.screens_stack.widget(index)
+            
+            if current_widget and new_widget:
+                # Setup animation
+                current_widget.show()
+                new_widget.show()
+                new_widget.raise_()
+                
+                screen_width = self.screens_stack.width()
+                current_widget.move(0, 0)
+                new_widget.move(direction * screen_width, 0)
+                
+                # Create animation group
+                anim_group = QParallelAnimationGroup(self)
+                
+                # Current widget animation
+                current_anim = QPropertyAnimation(current_widget, b"pos")
+                current_anim.setDuration(200)  # Reduced duration for faster animation
+                current_anim.setStartValue(QPoint(0, 0))
+                current_anim.setEndValue(QPoint(-direction * screen_width, 0))
+                current_anim.setEasingCurve(QEasingCurve.Type.OutQuad)  # Changed to simpler easing curve
+                
+                # New widget animation
+                new_anim = QPropertyAnimation(new_widget, b"pos")
+                new_anim.setDuration(200)  # Reduced duration for faster animation
+                new_anim.setStartValue(QPoint(direction * screen_width, 0))
+                new_anim.setEndValue(QPoint(0, 0))
+                new_anim.setEasingCurve(QEasingCurve.Type.OutQuad)  # Changed to simpler easing curve
+                
+                # Add animations to group
+                anim_group.addAnimation(current_anim)
+                anim_group.addAnimation(new_anim)
+                
+                # Update current screen index
+                self.current_screen = index
+                
+                # Reset animation flag when finished
+                def on_animation_finished():
+                    self.animation_in_progress = False
+                    self.screens_stack.setCurrentIndex(index)
+                
+                anim_group.finished.connect(on_animation_finished)
+                
+                # Start animation
+                anim_group.start()
 
 class StocksContent(ContentWidget):
     def __init__(self, parent=None):
@@ -525,6 +674,12 @@ class StocksContent(ContentWidget):
             )
             row, col = card_data["pos"]
             self.layout.addWidget(card, row, col)
+            
+        # Set column and row stretches to be equal
+        for i in range(3):  # 3 columns
+            self.layout.setColumnStretch(i, 1)
+        for i in range(2):  # 2 rows
+            self.layout.setRowStretch(i, 1)
 
 class NewsContent(ContentWidget):
     def __init__(self, parent=None):
@@ -704,15 +859,11 @@ class MainMenuContent(ContentWidget):
         buttons_layout.setSpacing(30)
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Create menu buttons
+        # Create only the indices button
         self.indices_button = MainMenuButton("📈", "NSE Indices")
-        self.stocks_button = MainMenuButton("💹", "Top Stocks")
-        self.news_button = MainMenuButton("📰", "Market News")
         
-        # Add buttons to layout
+        # Add button to layout
         buttons_layout.addWidget(self.indices_button)
-        buttons_layout.addWidget(self.stocks_button)
-        buttons_layout.addWidget(self.news_button)
         
         # Add buttons container to main layout
         self.layout.addWidget(buttons_container, 0, 0, 1, 3)
@@ -725,7 +876,7 @@ class MainMenuContent(ContentWidget):
         self.layout.addWidget(welcome_label, 1, 0, 1, 3)
         
         # Add description
-        desc_label = QLabel("Select an option above to view market data")
+        desc_label = QLabel("Click on NSE Indices to view market data")
         desc_label.setFont(QFont("Segoe UI", 16))
         desc_label.setStyleSheet("color: rgba(255, 255, 255, 0.8);")
         desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -739,169 +890,69 @@ class GlassmorphicUI(QWidget):
         # Set to fullscreen
         self.showFullScreen()
         
-        # Use resource_path to load the image
-        self.background = QPixmap(resource_path("bg_blurlow.png"))
+        # Initialize background attribute first
+        self.background = None
+        
+        # Try to load the background image
+        try:
+            bg_path = resource_path("bg_blurlow.png")
+            self.background = QPixmap(bg_path)
+            if self.background.isNull():
+                print(f"Failed to load background image from: {bg_path}")
+                # Create a fallback background
+                self.background = QPixmap(self.size())
+                self.background.fill(QColor(20, 30, 50))
+        except Exception as e:
+            print(f"Error loading background: {e}")
+            # Create a fallback background
+            self.background = QPixmap(self.size())
+            self.background.fill(QColor(20, 30, 50))
         
         # Main layout
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(20, 20, 20, 20)
-        self.main_layout.setSpacing(15)
+        self.main_layout.setContentsMargins(20, 10, 20, 20)
         
-        # Top bar with time, title and temperature
-        top_bar = QHBoxLayout()
+        # Add stretch to push content to center
+        self.main_layout.addStretch(1)
         
-        # Time with icon
-        time_layout = QHBoxLayout()
-        time_icon = QLabel("🕒")
-        time_icon.setFont(QFont("Segoe UI", 17))
-        time_icon.setStyleSheet("color: white;")
-        time_layout.addWidget(time_icon)
+        # Center content container
+        center_container = QWidget()
+        center_layout = QVBoxLayout(center_container)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.setSpacing(15)
         
-        self.time_label = QLabel("12:45 PM")
-        self.time_label.setObjectName("time_label")
-        self.time_label.setFont(QFont("Segoe UI", 17))
-        self.time_label.setStyleSheet("color: white;")
-        time_layout.addWidget(self.time_label)
-        
-        top_bar.addLayout(time_layout)
-        
-        # Title container with icon - will be updated based on current content
+        # Title container
         title_layout = QHBoxLayout()
-        self.title_icon = QLabel("📊")
-        self.title_icon.setFont(QFont("Segoe UI", 22))
-        self.title_icon.setStyleSheet("color: white;")
-        title_layout.addWidget(self.title_icon)
+        title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        self.title_label = QLabel("Financial Dashboard")
+        self.title_label = QLabel("NSE Indices")
         self.title_label.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
         self.title_label.setStyleSheet("color: white;")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_layout.addWidget(self.title_label, 1)
+        title_layout.addWidget(self.title_label)
         
-        top_bar.addLayout(title_layout, 1)
+        center_layout.addLayout(title_layout)
         
-        # Temperature with icon
-        temp_layout = QHBoxLayout()
-        temp_icon = QLabel("☀️")
-        temp_icon.setFont(QFont("Segoe UI", 17))
-        temp_layout.addWidget(temp_icon)
-        
-        temp_label = QLabel("32°C")
-        temp_label.setFont(QFont("Segoe UI", 17))
-        temp_label.setStyleSheet("color: white;")
-        temp_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        temp_layout.addWidget(temp_label)
-        
-        top_bar.addLayout(temp_layout)
-        
-        self.main_layout.addLayout(top_bar)
-        
-        # Create stacked widget for content
-        self.content_stack = QStackedWidget()
-        
-        # Create content widgets
-        self.main_menu_content = MainMenuContent()
+        # Create and add indices content
         self.indices_content = IndicesContent()
-        self.stocks_content = StocksContent()
-        self.news_content = NewsContent()
+        center_layout.addWidget(self.indices_content)
         
-        # Add content widgets to stack - main menu first
-        self.content_stack.addWidget(self.main_menu_content)
-        self.content_stack.addWidget(self.indices_content)
-        self.content_stack.addWidget(self.stocks_content)
-        self.content_stack.addWidget(self.news_content)
+        self.main_layout.addWidget(center_container)
         
-        # Set up button callbacks
-        self.main_menu_content.indices_button.set_click_callback(lambda: self.navigate_to_page(1))
-        self.main_menu_content.stocks_button.set_click_callback(lambda: self.navigate_to_page(2))
-        self.main_menu_content.news_button.set_click_callback(lambda: self.navigate_to_page(3))
-        
-        # Add stacked widget to main layout
-        self.main_layout.addWidget(self.content_stack)
-        
-        # Navigation dots layout
-        self.nav_layout = QHBoxLayout()
-        self.nav_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.nav_layout.setSpacing(10)
-        
-        # Initialize variables before setup_navigation
-        self.current_page = 0
-        self.total_pages = self.content_stack.count()
-        self.animation_in_progress = False
-        self.old_pos = None
-        
-        # Create navigation dots
-        self.setup_navigation()
-        
-        # Add navigation layout to main layout
-        self.main_layout.addLayout(self.nav_layout)
-        
-        # Add home button
-        self.home_button = QPushButton("🏠 Home")
-        self.home_button.setFixedSize(120, 40)
-        self.home_button.setFont(QFont("Segoe UI", 12))
-        self.home_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 255, 255, 0.2);
-                color: white;
-                border: none;
-                border-radius: 20px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.3);
-            }
-            QPushButton:pressed {
-                background-color: rgba(255, 255, 255, 0.1);
-            }
-        """)
-        self.home_button.clicked.connect(self.go_home)
-        
-        home_layout = QHBoxLayout()
-        home_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        home_layout.addWidget(self.home_button)
-        self.main_layout.addLayout(home_layout)
-        
-        # Update time periodically
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_time)
-        self.timer.start(60000)  # Update every minute
-        
-        # Initial time update
-        self.update_time()
-        
-        # Update title based on current content
-        self.update_title()
+        # Add stretch to push content to center
+        self.main_layout.addStretch(1)
         
         # For keyboard shortcut tracking
         self.key_sequence = ""
         self.exit_sequence = "yogi"
-        
-        # # Add exit button
-        # exit_button = QPushButton("❌ Exit")
-        # exit_button.setFixedSize(80, 30)
-        # exit_button.setFont(QFont("Segoe UI", 10))
-        # exit_button.setStyleSheet("""
-        #     QPushButton {
-        #         background-color: rgba(255, 50, 50, 0.7);
-        #         color: white;
-        #         border: none;
-        #         border-radius: 15px;
-        #         padding: 5px;
-        #     }
-        #     QPushButton:hover {
-        #         background-color: rgba(255, 50, 50, 0.9);
-        #     }
-        # """)
-        # exit_button.clicked.connect(self.close)
-        
-        # Add exit button to top-right corner
-        # exit_layout = QHBoxLayout()
-        # exit_layout.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
-        # exit_layout.addWidget(exit_button)
-        
-        # # Add exit layout to main layout
-        # self.main_layout.insertLayout(0, exit_layout)
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        if hasattr(self, 'background') and self.background and not self.background.isNull():
+            painter.drawPixmap(self.rect(), self.background)
+        else:
+            # Fallback to a solid color if background is not available
+            painter.fillRect(self.rect(), QColor(20, 30, 50))
     
     def keyPressEvent(self, event):
         # Track key sequence for exit shortcut
@@ -922,174 +973,6 @@ class GlassmorphicUI(QWidget):
             self.showNormal()
         
         super().keyPressEvent(event)
-    
-    def navigate_to_page(self, page_index):
-        if not self.animation_in_progress and self.current_page != page_index:
-            self.animate_page_change(page_index)
-    
-    def go_home(self):
-        if not self.animation_in_progress and self.current_page != 0:
-            self.animate_page_change(0)
-    
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.drawPixmap(self.rect(), self.background)
-    
-    def setup_navigation(self):
-        # Create navigation dots
-        for i in range(self.content_stack.count()):
-            dot = QPushButton()
-            dot.setFixedSize(12, 12)
-            dot.setStyleSheet("""
-                QPushButton {
-                    background-color: white;
-                    border-radius: 6px;
-                    opacity: 0.5;
-                }
-                QPushButton:checked {
-                    background-color: white;
-                    opacity: 1.0;
-                }
-            """)
-            dot.setCheckable(True)
-            dot.setChecked(i == self.current_page)
-            
-            # Use a lambda with default arguments to avoid late binding issues
-            dot.clicked.connect(lambda checked, idx=i: self.change_page(idx))
-            
-            self.nav_layout.addWidget(dot)
-    
-    def update_time(self):
-        current_time = QTime.currentTime()
-        time_text = current_time.toString("hh:mm AP")
-        self.time_label.setText(time_text)
-    
-    def update_title(self):
-        current_content = self.content_stack.currentWidget()
-        if isinstance(current_content, ContentWidget):
-            self.title_label.setText(current_content.title)
-            
-            # Update icon based on title
-            if "Indices" in current_content.title:
-                self.title_icon.setText("📈")
-            elif "Stocks" in current_content.title:
-                self.title_icon.setText("💹")
-            elif "News" in current_content.title:
-                self.title_icon.setText("📰")
-            else:
-                self.title_icon.setText("📊")
-    
-    def update_navigation(self):
-        # Update the navigation dots based on current page
-        for i, dot in enumerate(self.find_children(self.nav_layout, QPushButton)):
-            dot.setChecked(i == self.current_page)
-    
-    def find_children(self, layout, widget_type):
-        """Helper method to find all children of a specific type in a layout"""
-        children = []
-        for i in range(layout.count()):
-            widget = layout.itemAt(i).widget()
-            if isinstance(widget, widget_type):
-                children.append(widget)
-        return children
-    
-    def mousePressEvent(self, event):
-        if not self.animation_in_progress:
-            self.old_pos = event.pos()
-    
-    def mouseReleaseEvent(self, event):
-        if self.old_pos is not None and not self.animation_in_progress:
-            # Calculate the difference in x position
-            dx = event.pos().x() - self.old_pos.x()
-            
-            # If the swipe distance is significant (reduced from 50 to 30 pixels for more responsive swipes)
-            if abs(dx) > 30:
-                if dx > 0:  # Swipe from left to right
-                    new_page = max(0, self.current_page - 1)
-                else:  # Swipe from right to left
-                    new_page = min(self.total_pages - 1, self.current_page + 1)
-                
-                # Only animate if the page is changing
-                if new_page != self.current_page:
-                    self.animate_page_change(new_page)
-            
-            self.old_pos = None
-    
-    def change_page(self, page_index):
-        if page_index != self.current_page and not self.animation_in_progress:
-            self.animate_page_change(page_index)
-    
-    def animate_page_change(self, new_page):
-        if new_page == self.current_page or self.animation_in_progress:
-            return
-            
-        # Set animation in progress flag
-        self.animation_in_progress = True
-        
-        # Initialize animation properties
-        direction = 1 if new_page > self.current_page else -1
-        current_widget = self.content_stack.widget(self.current_page)
-        new_widget = self.content_stack.widget(new_page)
-        
-        # Make sure both widgets are in the stacked widget
-        if current_widget and new_widget:
-            # Prepare for animation - both widgets need to be visible
-            current_widget.show()
-            new_widget.show()
-            
-            # Ensure new widget is on top during animation
-            new_widget.raise_()
-            
-            # Starting positions
-            screen_width = self.width()
-            current_widget.move(0, 0)
-            new_widget.move(direction * screen_width, 0)
-            
-            # Create a parallel animation group for smoother synchronization
-            animation_group = QParallelAnimationGroup(self)
-            
-            # Create animation for current widget
-            current_anim = QPropertyAnimation(current_widget, b"pos", self)
-            current_anim.setDuration(200)  # Faster animation
-            current_anim.setStartValue(QPoint(0, 0))
-            current_anim.setEndValue(QPoint(-direction * screen_width, 0))
-            current_anim.setEasingCurve(QEasingCurve.Type.OutExpo)  # Smoother acceleration
-            
-            # Create animation for new widget
-            new_anim = QPropertyAnimation(new_widget, b"pos", self)
-            new_anim.setDuration(200)  # Faster animation
-            new_anim.setStartValue(QPoint(direction * screen_width, 0))
-            new_anim.setEndValue(QPoint(0, 0))
-            
-            # Add bounce effect at the last screen
-            if new_page == self.total_pages - 1 or (new_page == 0 and self.current_page == self.total_pages - 1):
-                new_anim.setEasingCurve(QEasingCurve.Type.OutBounce)  # Bounce effect
-            else:
-                new_anim.setEasingCurve(QEasingCurve.Type.OutExpo)  # Smooth acceleration
-            
-            # Add animations to the group
-            animation_group.addAnimation(current_anim)
-            animation_group.addAnimation(new_anim)
-            
-            # Update current page and navigation
-            self.current_page = new_page
-            self.update_navigation()
-            
-            # When animation finishes, update stacked widget and reset flag
-            animation_group.finished.connect(self.on_animation_finished)
-            
-            # Start animations
-            animation_group.start()
-    
-    def on_animation_finished(self):
-        # Set current widget in stacked widget
-        self.content_stack.setCurrentIndex(self.current_page)
-        
-        # Update title based on current content
-        self.update_title()
-        
-        # Reset animation flag
-        self.animation_in_progress = False
 
 if __name__ == "__main__":
     app = QApplication([])
