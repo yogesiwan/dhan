@@ -1,0 +1,32 @@
+[Unit]
+Description=Dhan Dashboard
+After=network.target graphical.target  # Wait for network and GUI (if applicable)
+Requires=network-online.target         # Ensure network is fully online
+Wants=systemd-modules-load.service     # Load kernel modules (for DRM/GPU)
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Dhan/dhan-main
+ExecStartPre=/bin/bash -c "mkdir -p /run/user/1000 && chmod 700 /run/user/1000"
+ExecStart=/usr/bin/python3 /home/pi/Dhan/dhan-main/dashboard.py
+
+# Environment variables
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+Environment="QT_QPA_PLATFORM=eglfs"
+Environment="QT_QPA_EGLFS_ROTATION=90"
+Environment="QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=rotate=90:invertx"
+
+# Stability & recovery
+Restart=on-failure
+RestartSec=5s              # Wait 5 seconds before restarting
+TimeoutStopSec=10s         # Force-terminate if app hangs
+KillSignal=SIGINT          # Graceful termination signal
+
+# Logging
+StandardOutput=file:/var/log/dashboard.log
+StandardError=file:/var/log/dashboard-error.log
+LogRateLimitIntervalSec=0  # Disable rate-limiting for logs
+
+[Install]
+WantedBy=multi-user.target
