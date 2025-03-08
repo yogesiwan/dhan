@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout, 
                             QGraphicsDropShadowEffect, QHBoxLayout, QVBoxLayout, 
-                            QFrame, QStackedWidget, QSizePolicy)
+                            QFrame, QStackedWidget, QSizePolicy, QWIDGETSIZE_MAX)
 from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap, QPen, QTransform, QKeyEvent, QPainterPath
 from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup, QRectF, pyqtProperty
 import os
@@ -26,7 +26,7 @@ class GlassmorphicCard(QFrame):
             QFrame#glassmorphicCard {
                 background-color: rgba(40, 50, 80, 0.5);
                 border-radius: 10px;
-                padding: 10px;
+                padding: 40px;
             }
         """)
         
@@ -85,7 +85,7 @@ class GlassmorphicCard(QFrame):
         
         title_layout.addSpacing(8)
         
-        title_font_size = 20
+        title_font_size = 25
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
             title_font_size = int(title_font_size * 1.2)
             
@@ -97,7 +97,7 @@ class GlassmorphicCard(QFrame):
         title_layout.addStretch()
         
         layout.addLayout(title_layout)
-        layout.addSpacing(90)
+        layout.addSpacing(50)
         
         value_label = QLabel(self.value)
         value_label.setFont(QFont("Segoe UI", 25, QFont.Weight.Bold))
@@ -304,20 +304,6 @@ class IndicesContent(ContentWidget):
         self.screens_stack = QStackedWidget()
         self.layout.addWidget(self.screens_stack, 0, 0, 1, 3)
         
-        # Enhanced animation configuration
-        self.animation_duration = 300
-        self.drag_threshold = 50
-        self.is_dragging = False
-        self.elastic_edge_factor = 0.3  # Controls edge resistance
-        self.opacity_range = (0.6, 1.0)  # Min and max opacity for transitions
-        self.preview_opacity = 0.8  # Opacity for preview screens
-        self.edge_bounce_threshold = 0.15  # Controls when edge bounce occurs
-        
-        # Track last position for smoother animations
-        self.last_x = 0
-        self.drag_start_x = 0
-        self.edge_bounce_active = False
-        
         # NSE Indices data - 54 indices (9 screens × 6 cards)
         indices_data = [
             # Screen 1
@@ -447,173 +433,24 @@ class IndicesContent(ContentWidget):
                 if event.type() == event.Type.MouseButtonPress:
                     if not self.animation_in_progress:
                         self.old_pos = event.pos()
-                        self.is_dragging = True
-                        self.drag_start_x = event.pos().x()
-                        self.last_x = event.pos().x()
-                        self.edge_bounce_active = False
                     return True
                 
                 elif event.type() == event.Type.MouseButtonRelease:
                     if self.old_pos is not None and not self.animation_in_progress:
                         delta = event.pos().x() - self.old_pos.x()
-                        # Calculate swipe speed for natural feeling
-                        speed = abs(event.pos().x() - self.last_x)
-                        
-                        # Always reset positions if at edges
-                        if ((self.current_screen == 0 and delta > 0) or 
-                            (self.current_screen == self.screens_stack.count() - 1 and delta < 0)):
-                            self.reset_screen_positions()
-                        else:
-                            # Adjust threshold based on speed
-                            dynamic_threshold = self.drag_threshold * (1.0 - min(speed / 50.0, 0.5))
-                            
-                            if abs(delta) > dynamic_threshold:
-                                if delta > 0 and self.current_screen > 0:
-                                    self.change_screen(self.current_screen - 1)
-                                elif delta < 0 and self.current_screen < self.screens_stack.count() - 1:
-                                    self.change_screen(self.current_screen + 1)
-                            else:
-                                self.reset_screen_positions()
-                        
-                        # Clean up state
+                        if abs(delta) > 50:
+                            if delta > 0 and self.current_screen > 0:
+                                self.change_screen(self.current_screen - 1)
+                            elif delta < 0 and self.current_screen < self.screens_stack.count() - 1:
+                                self.change_screen(self.current_screen + 1)
                         self.old_pos = None
-                        self.is_dragging = False
-                        self.last_x = 0
-                        self.drag_start_x = 0
-                        self.edge_bounce_active = False
                     return True
-                
-                elif event.type() == event.Type.MouseMove and event.buttons() == Qt.MouseButton.LeftButton:
-                    if self.old_pos is not None and not self.animation_in_progress and self.is_dragging:
-                        delta = event.pos().x() - self.old_pos.x()
-                        current_widget = self.screens_stack.currentWidget()
-                        if current_widget:
-                            screen_width = self.screens_stack.width()
-                            
-                            # Enhanced edge handling
-                            at_edge = ((self.current_screen == 0 and delta > 0) or 
-                                     (self.current_screen == self.screens_stack.count() - 1 and delta < 0))
-                            
-                            if at_edge:
-                                # Calculate edge resistance
-                                edge_percent = abs(delta) / screen_width
-                                if edge_percent > self.edge_bounce_threshold:
-                                    if not self.edge_bounce_active:
-                                        self.edge_bounce_active = True
-                                        self.reset_screen_positions()
-                                    return True
-                                
-                                # Progressive resistance - gets stronger as you pull further
-                                resistance = max(0.05, 1.0 - (edge_percent / self.edge_bounce_threshold))
-                                delta *= self.elastic_edge_factor * resistance
-                            
-                            # Convert delta to integer for move operations
-                            delta_int = int(delta)
-                            
-                            # Smooth movement with position tracking
-                            current_widget.move(delta_int, 0)
-                            self.last_x = event.pos().x()
-                            
-                            # Initialize adjacent screen widgets
-                            prev_widget = None
-                            next_widget = None
-                            
-                            # Enhanced preview of adjacent screens
-                            if self.current_screen > 0:
-                                prev_widget = self.screens_stack.widget(self.current_screen - 1)
-                                if prev_widget:
-                                    prev_widget.show()
-                                    prev_widget.raise_()
-                                    prev_widget.move(delta_int - screen_width, 0)
-                            
-                            if self.current_screen < self.screens_stack.count() - 1:
-                                next_widget = self.screens_stack.widget(self.current_screen + 1)
-                                if next_widget:
-                                    next_widget.show()
-                                    next_widget.raise_()
-                                    next_widget.move(screen_width + delta_int, 0)
-                            
-                            # Enhanced progressive opacity effects
-                            drag_percent = abs(delta) / screen_width
-                            current_opacity = max(
-                                self.opacity_range[0],
-                                self.opacity_range[1] - drag_percent * 0.4
-                            )
-                            current_widget.setWindowOpacity(current_opacity)
-                            
-                            # Progressive preview opacity with edge handling
-                            if prev_widget and not (self.current_screen == 0 and delta > 0):
-                                prev_opacity = min(self.preview_opacity, drag_percent)
-                                prev_widget.setWindowOpacity(prev_opacity)
-                            if next_widget and not (self.current_screen == self.screens_stack.count() - 1 and delta < 0):
-                                next_opacity = min(self.preview_opacity, drag_percent)
-                                next_widget.setWindowOpacity(next_opacity)
-                        return True
             
             return super().eventFilter(obj, event)
         
         # Replace the eventFilter method
         self.eventFilter = eventFilter.__get__(self)
     
-    def reset_screen_positions(self):
-        current_widget = self.screens_stack.currentWidget()
-        if current_widget:
-            # Create animation group for resetting positions
-            anim_group = QParallelAnimationGroup(self)
-            
-            # Animate current widget back to center with bounce effect
-            current_anim = QPropertyAnimation(current_widget, b"pos")
-            current_anim.setDuration(self.animation_duration)
-            current_anim.setStartValue(current_widget.pos())
-            current_anim.setEndValue(QPoint(0, 0))
-            
-            # Use OutBack for edge bounce, OutCubic for normal reset
-            if self.edge_bounce_active:
-                current_anim.setEasingCurve(QEasingCurve.Type.OutBack)
-            else:
-                current_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-            
-            # Animate opacity back to full
-            current_opacity = QPropertyAnimation(current_widget, b"windowOpacity")
-            current_opacity.setDuration(self.animation_duration)
-            current_opacity.setStartValue(current_widget.windowOpacity())
-            current_opacity.setEndValue(1.0)
-            
-            anim_group.addAnimation(current_anim)
-            anim_group.addAnimation(current_opacity)
-            
-            # Reset adjacent screens
-            if self.current_screen > 0:
-                prev_widget = self.screens_stack.widget(self.current_screen - 1)
-                if prev_widget and prev_widget.isVisible():
-                    prev_anim = QPropertyAnimation(prev_widget, b"windowOpacity")
-                    prev_anim.setDuration(self.animation_duration)
-                    prev_anim.setStartValue(prev_widget.windowOpacity())
-                    prev_anim.setEndValue(0.0)
-                    anim_group.addAnimation(prev_anim)
-            
-            if self.current_screen < self.screens_stack.count() - 1:
-                next_widget = self.screens_stack.widget(self.current_screen + 1)
-                if next_widget and next_widget.isVisible():
-                    next_anim = QPropertyAnimation(next_widget, b"windowOpacity")
-                    next_anim.setDuration(self.animation_duration)
-                    next_anim.setStartValue(next_widget.windowOpacity())
-                    next_anim.setEndValue(0.0)
-                    anim_group.addAnimation(next_anim)
-            
-            def on_reset_finished():
-                if self.current_screen > 0:
-                    prev_widget = self.screens_stack.widget(self.current_screen - 1)
-                    if prev_widget:
-                        prev_widget.hide()
-                if self.current_screen < self.screens_stack.count() - 1:
-                    next_widget = self.screens_stack.widget(self.current_screen + 1)
-                    if next_widget:
-                        next_widget.hide()
-            
-            anim_group.finished.connect(on_reset_finished)
-            anim_group.start()
-
     def change_screen(self, index):
         if index != self.current_screen and not self.animation_in_progress:
             self.animation_in_progress = True
@@ -623,67 +460,50 @@ class IndicesContent(ContentWidget):
             new_widget = self.screens_stack.widget(index)
             
             if current_widget and new_widget:
-                # Ensure both widgets are properly sized before animation
-                current_widget.setFixedSize(self.screens_stack.size())
-                new_widget.setFixedSize(self.screens_stack.size())
+                # Pre-calculate positions to reduce computation during animation
+                screen_width = self.screens_stack.width()
+                start_pos = QPoint(direction * screen_width, 0)
+                end_pos = QPoint(-direction * screen_width, 0)
+                zero_pos = QPoint(0, 0)
+                
+                # Set fixed size once before animation
+                widget_size = self.screens_stack.size()
+                current_widget.setFixedSize(widget_size)
+                new_widget.setFixedSize(widget_size)
                 
                 current_widget.show()
                 new_widget.show()
                 new_widget.raise_()
                 
-                screen_width = self.screens_stack.width()
-                
-                # Get current positions for smooth transition
-                current_pos = current_widget.pos()
-                new_pos = new_widget.pos()
-                
-                # Calculate end positions
-                current_end = QPoint(-direction * screen_width, 0)
-                new_end = QPoint(0, 0)
+                current_widget.move(zero_pos)
+                new_widget.move(start_pos)
                 
                 anim_group = QParallelAnimationGroup(self)
                 
-                # Position animations with physics-based smoothness
+                # Optimize animation settings for smoother performance
                 current_anim = QPropertyAnimation(current_widget, b"pos")
-                current_anim.setDuration(self.animation_duration)
-                current_anim.setStartValue(current_pos)
-                current_anim.setEndValue(current_end)
-                current_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+                current_anim.setDuration(150)  # Reduced duration
+                current_anim.setStartValue(zero_pos)
+                current_anim.setEndValue(end_pos)
+                current_anim.setEasingCurve(QEasingCurve.Type.Linear)  # Linear for smoother motion
                 
                 new_anim = QPropertyAnimation(new_widget, b"pos")
-                new_anim.setDuration(self.animation_duration)
-                new_anim.setStartValue(new_pos)
-                new_anim.setEndValue(new_end)
-                new_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-                
-                # Smooth opacity transitions
-                current_opacity = QPropertyAnimation(current_widget, b"windowOpacity")
-                current_opacity.setDuration(self.animation_duration)
-                current_opacity.setStartValue(current_widget.windowOpacity())
-                current_opacity.setEndValue(0.8)
-                current_opacity.setEasingCurve(QEasingCurve.Type.InOutQuad)
-                
-                new_opacity = QPropertyAnimation(new_widget, b"windowOpacity")
-                new_opacity.setDuration(self.animation_duration)
-                new_opacity.setStartValue(new_widget.windowOpacity())
-                new_opacity.setEndValue(1.0)
-                new_opacity.setEasingCurve(QEasingCurve.Type.InOutQuad)
+                new_anim.setDuration(150)  # Reduced duration
+                new_anim.setStartValue(start_pos)
+                new_anim.setEndValue(zero_pos)
+                new_anim.setEasingCurve(QEasingCurve.Type.Linear)  # Linear for smoother motion
                 
                 anim_group.addAnimation(current_anim)
                 anim_group.addAnimation(new_anim)
-                anim_group.addAnimation(current_opacity)
-                anim_group.addAnimation(new_opacity)
                 
                 self.current_screen = index
                 
                 def on_animation_finished():
                     self.animation_in_progress = False
                     self.screens_stack.setCurrentIndex(index)
-                    # Reset opacity and position after animation
-                    current_widget.setWindowOpacity(1.0)
-                    new_widget.setWindowOpacity(1.0)
-                    current_widget.move(0, 0)
-                    new_widget.move(0, 0)
+                    # Reset widget sizes after animation
+                    current_widget.setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
+                    new_widget.setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
                 
                 anim_group.finished.connect(on_animation_finished)
                 anim_group.start()
