@@ -1,46 +1,33 @@
 [Unit]
 Description=Dhan Dashboard
-After=graphical.target  # Wait for GUI
-Wants=systemd-modules-load.service     # Load kernel modules (for DRM/GPU)
+After=graphical.target
 
 [Service]
 Type=simple
 User=yogesh
 Group=yogesh
 WorkingDirectory=/home/yogesh/Dhan/dhan-main
-# Create runtime directory and set permissions
-ExecStartPre=/bin/bash -c "mkdir -p /run/user/1000 && chown yogesh:yogesh /run/user/1000 && chmod 700 /run/user/1000"
-# Set display and ensure proper permissions
-ExecStartPre=/bin/bash -c "chown yogesh:yogesh /dev/tty0 || true"
+
+# Add small delay for stability
+ExecStartPre=/bin/sleep 1
+
+# Basic environment setup
+Environment="DISPLAY=:0"
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+Environment="QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0"
+Environment="QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=rotate=90"
+Environment="QT_QPA_FB_ROTATION=90"
+Environment="HOME=/home/yogesh"
+
 ExecStart=/usr/bin/python3 /home/yogesh/Dhan/dhan-main/dashboard.py
 
-# Environment variables
-Environment="DISPLAY=:0"
-Environment="XAUTHORITY=/home/yogesh/.Xauthority"
-Environment="XDG_RUNTIME_DIR=/run/user/1000"
-Environment="QT_QPA_PLATFORM=eglfs"
-Environment="QT_QPA_EGLFS_ROTATION=90"
-Environment="QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=rotate=90:invertx"
-Environment="HOME=/home/yogesh"
-Environment="USER=yogesh"
-
-# Required capabilities and permissions
-SupplementaryGroups=video input gpio
-# Allow access to hardware
-DeviceAllow=/dev/dri/card0 rw
-DeviceAllow=/dev/input/* rw
-DeviceAllow=/dev/tty0 rw
-
-# Stability & recovery
+# Basic recovery
 Restart=always
-RestartSec=5s              # Wait 5 seconds before restarting
-TimeoutStopSec=10s         # Force-terminate if app hangs
-KillSignal=SIGINT          # Graceful termination signal
+RestartSec=3s
 
 # Logging
 StandardOutput=append:/var/log/dashboard.log
 StandardError=append:/var/log/dashboard-error.log
-LogRateLimitIntervalSec=0  # Disable rate-limiting for logs
 
 [Install]
 WantedBy=multi-user.target
