@@ -1,6 +1,16 @@
-echo "[Desktop Entry]
+[Desktop Entry]
 Type=Application
 Name=Financial Dashboard
-Exec=bash -c 'cd /home/yogesh/Dhan/dhan-main && python3 dashboard.py'
-Terminal=false
-X-GNOME-Autostart-enabled=true" > ~/.config/autostart/financial-dashboard.desktop
+Exec=bash -c "cd /home/yogesh/Dhan/dhan-main && sleep 2  && xrandr -o 1  &&  python3 dashboard.py"
+Path=/home/yogesh/Dhan/dhan-main
+X-GNOME-Autostart-enabled=true
+
+
+
+
+
+
+
+
+
+
