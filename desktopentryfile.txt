@@ -1,0 +1,6 @@
+echo "[Desktop Entry]
+Type=Application
+Name=Financial Dashboard
+Exec=bash -c 'cd /home/yogesh/Dhan/dhan-main && python3 dashboard.py'
+Terminal=false
+X-GNOME-Autostart-enabled=true" > ~/.config/autostart/financial-dashboard.desktop
