@@ -513,6 +513,9 @@ class GlassmorphicUI(QWidget):
         super().__init__()
         self.setWindowTitle("Financial Dashboard")
         
+        # Hide cursor for the entire application
+        self.setCursor(Qt.CursorShape.BlankCursor)
+        
         self.showFullScreen()
         
         self.background = None
