@@ -596,6 +596,14 @@ class GlassmorphicUI(QWidget):
 
 if __name__ == "__main__":
     app = QApplication([])
+    
+    # Add these lines for rotation handling
+    from PyQt5.QtGui import QGuiApplication, QScreen
+    screen = QGuiApplication.primaryScreen()
+    geometry = screen.geometry()
+    
     window = GlassmorphicUI()
+    # Force the window to rotate
+    window.setGeometry(0, 0, geometry.height(), geometry.width())
     window.show()
     app.exec()
