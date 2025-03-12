@@ -1,0 +1,18 @@
+#!/bin/bash
+case $1 in
+    "right")
+        echo 1 > /sys/class/graphics/fb0/rotate
+        ;;
+    "left")
+        echo 3 > /sys/class/graphics/fb0/rotate
+        ;;
+    "normal")
+        echo 0 > /sys/class/graphics/fb0/rotate
+        ;;
+    "inverted")
+        echo 2 > /sys/class/graphics/fb0/rotate
+        ;;
+    *)
+        echo "Usage: rotate-screen [right|left|normal|inverted]"
+        ;;
+esac
