@@ -513,8 +513,17 @@ class GlassmorphicUI(QWidget):
         super().__init__()
         self.setWindowTitle("Financial Dashboard")
         
+        # Force fullscreen flags
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowState(Qt.WindowState.WindowFullScreen)
+        
         # Hide cursor for the entire application
         self.setCursor(Qt.CursorShape.BlankCursor)
+        
+        # Force the widget to use the full screen size
+        screen = QApplication.primaryScreen().geometry()
+        self.setGeometry(screen)
+        self.setFixedSize(screen.width(), screen.height())
         
         self.showFullScreen()
         
