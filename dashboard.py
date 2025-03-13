@@ -317,6 +317,37 @@ class IndicesContent(ContentWidget):
         self.screens_stack = QStackedWidget()
         self.layout.addWidget(self.screens_stack, 0, 0, 1, 3)
         
+        # Create page indicator container
+        page_indicator_container = QWidget()
+        page_indicator_layout = QHBoxLayout(page_indicator_container)
+        page_indicator_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        page_indicator_layout.setSpacing(15)  # Space between dots
+        
+        # Create dots for each screen
+        self.page_dots = []
+        for i in range(9):  # 9 screens
+            dot = QLabel()
+            dot.setFixedSize(12, 12)  # Size of each dot
+            dot.setStyleSheet("""
+                QLabel {
+                    background-color: rgba(255, 255, 255, 0.3);
+                    border-radius: 6px;
+                }
+            """)
+            page_indicator_layout.addWidget(dot)
+            self.page_dots.append(dot)
+        
+        # Add page indicator below the screens stack
+        self.layout.addWidget(page_indicator_container, 1, 0, 1, 3)
+        
+        # Update the first dot to show it's selected
+        self.page_dots[0].setStyleSheet("""
+            QLabel {
+                background-color: rgba(255, 255, 255, 0.9);
+                border-radius: 6px;
+            }
+        """)
+        
         # NSE Indices data - 54 indices (9 screens × 6 cards)
         self.indices_data = [
             # Screen 1
@@ -489,6 +520,20 @@ class IndicesContent(ContentWidget):
         if index != self.current_screen and not self.animation_in_progress:
             self.animation_in_progress = True
             
+            # Update page indicator dots
+            self.page_dots[self.current_screen].setStyleSheet("""
+                QLabel {
+                    background-color: rgba(255, 255, 255, 0.3);
+                    border-radius: 6px;
+                }
+            """)
+            self.page_dots[index].setStyleSheet("""
+                QLabel {
+                    background-color: rgba(255, 255, 255, 0.9);
+                    border-radius: 6px;
+                }
+            """)
+            
             direction = 1 if index > self.current_screen else -1
             current_widget = self.screens_stack.currentWidget()
             new_widget = self.screens_stack.widget(index)
@@ -519,16 +564,16 @@ class IndicesContent(ContentWidget):
                 
                 # Position animations with improved settings
                 current_anim = QPropertyAnimation(current_widget, b"pos")
-                current_anim.setDuration(300)  # Increased duration for smoother effect
+                current_anim.setDuration(200)  # Reduced from 300ms to 200ms for faster animation
                 current_anim.setStartValue(zero_pos)
                 current_anim.setEndValue(end_pos)
-                current_anim.setEasingCurve(QEasingCurve.Type.OutCubic)  # Smoother easing curve
+                current_anim.setEasingCurve(QEasingCurve.Type.OutExpo)  # Changed to OutExpo for smoother acceleration/deceleration
                 
                 new_anim = QPropertyAnimation(new_widget, b"pos")
-                new_anim.setDuration(300)  # Increased duration for smoother effect
+                new_anim.setDuration(200)  # Reduced from 300ms to 200ms for faster animation
                 new_anim.setStartValue(start_pos)
                 new_anim.setEndValue(zero_pos)
-                new_anim.setEasingCurve(QEasingCurve.Type.OutCubic)  # Smoother easing curve
+                new_anim.setEasingCurve(QEasingCurve.Type.OutExpo)  # Changed to OutExpo for smoother acceleration/deceleration
                 
                 # Add animations to group
                 anim_group.addAnimation(current_anim)
