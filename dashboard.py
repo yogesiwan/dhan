@@ -520,12 +520,15 @@ class GlassmorphicUI(QWidget):
         # Hide cursor for the entire application
         self.setCursor(Qt.CursorShape.BlankCursor)
         
-        # Force the widget to use the full screen size
-        screen = QApplication.primaryScreen().geometry()
-        self.setGeometry(screen)
-        self.setFixedSize(screen.width(), screen.height())
+        # Get screen dimensions
+        self.screen = QApplication.primaryScreen().geometry()
+        self.is_rotated = False
         
-        self.showFullScreen()
+        # Set initial dimensions
+        self.updateDimensions()
+        
+        # Show the window
+        self.show()
         
         self.background = None
         
@@ -571,6 +574,45 @@ class GlassmorphicUI(QWidget):
         
         self.key_sequence = ""
         self.exit_sequence = "yogi"
+        self.rotation_sequence = "rot"
+        self.minimize_sequence = "min"
+    
+    def updateDimensions(self):
+        if not self.is_rotated:
+            self.setGeometry(0, 0, self.screen.width(), self.screen.height())
+            self.setFixedSize(self.screen.width(), self.screen.height())
+        else:
+            self.setGeometry(0, 0, self.screen.height(), self.screen.width())
+            self.setFixedSize(self.screen.height(), self.screen.width())
+    
+    def rotateDisplay(self):
+        self.is_rotated = not self.is_rotated
+        
+        self.updateDimensions()
+        
+        # Force a relayout of all widgets
+        self.updateGeometry()
+        self.adjustSize()
+        
+        # Update the background if it exists
+        if self.background and not self.background.isNull():
+            if self.is_rotated:
+                transform = QTransform().rotate(90)
+                self.background = self.background.transformed(transform)
+            else:
+                transform = QTransform().rotate(-90)
+                self.background = self.background.transformed(transform)
+        
+        # Force a repaint
+        self.update()
+        
+        # Make sure window is visible and on top
+        self.show()
+        self.raise_()
+        self.activateWindow()
+    
+    def minimizeWindow(self):
+        self.showMinimized()
     
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -581,8 +623,18 @@ class GlassmorphicUI(QWidget):
     
     def keyPressEvent(self, event):
         if event.key() >= Qt.Key.Key_A and event.key() <= Qt.Key.Key_Z:
-            self.key_sequence += chr(event.key()).lower()
+            char = chr(event.key()).lower()
+            self.key_sequence += char
             
+            # Check for minimize sequence
+            if self.key_sequence.endswith(self.minimize_sequence):
+                self.minimizeWindow()
+            
+            # Check for rotation sequence
+            if self.key_sequence.endswith(self.rotation_sequence):
+                self.rotateDisplay()
+            
+            # Check for exit sequence
             if self.key_sequence.endswith(self.exit_sequence):
                 self.close()
             
@@ -596,14 +648,7 @@ class GlassmorphicUI(QWidget):
 
 if __name__ == "__main__":
     app = QApplication([])
-    
-    # Add these lines for rotation handling
-    from PyQt5.QtGui import QGuiApplication, QScreen
-    screen = QGuiApplication.primaryScreen()
-    geometry = screen.geometry()
-    
     window = GlassmorphicUI()
-    # Force the window to rotate
-    window.setGeometry(0, 0, geometry.height(), geometry.width())
-    window.show()
+    window.show()  # Make sure window is shown
+    window.raise_()  # Bring to front
     app.exec()
