@@ -202,7 +202,7 @@ class GlassmorphicCard(QFrame):
         remaining_words = title_words[2:]
         
         # Base font size
-        base_font_size = 23
+        base_font_size = 24
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
             base_font_size = int(base_font_size * 1.2)
         
@@ -564,16 +564,16 @@ class IndicesContent(ContentWidget):
                 
                 # Position animations with improved settings
                 current_anim = QPropertyAnimation(current_widget, b"pos")
-                current_anim.setDuration(200)  # Reduced from 300ms to 200ms for faster animation
+                current_anim.setDuration(800)  # Increased from 400ms to 800ms for much slower animation
                 current_anim.setStartValue(zero_pos)
                 current_anim.setEndValue(end_pos)
-                current_anim.setEasingCurve(QEasingCurve.Type.OutExpo)  # Changed to OutExpo for smoother acceleration/deceleration
+                current_anim.setEasingCurve(QEasingCurve.Type.OutExpo)
                 
                 new_anim = QPropertyAnimation(new_widget, b"pos")
-                new_anim.setDuration(200)  # Reduced from 300ms to 200ms for faster animation
+                new_anim.setDuration(800)  # Increased from 400ms to 800ms for much slower animation
                 new_anim.setStartValue(start_pos)
                 new_anim.setEndValue(zero_pos)
-                new_anim.setEasingCurve(QEasingCurve.Type.OutExpo)  # Changed to OutExpo for smoother acceleration/deceleration
+                new_anim.setEasingCurve(QEasingCurve.Type.OutExpo)
                 
                 # Add animations to group
                 anim_group.addAnimation(current_anim)
