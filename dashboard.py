@@ -2,10 +2,22 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout,
                             QGraphicsDropShadowEffect, QHBoxLayout, QVBoxLayout, 
                             QFrame, QStackedWidget, QSizePolicy, QWIDGETSIZE_MAX)
 from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap, QPen, QTransform, QKeyEvent, QPainterPath
-from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup, QRectF, pyqtProperty
+from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup, QRectF, pyqtProperty, QTimer, pyqtSignal, QObject
 import os
 import sys
 import math
+import json
+import paho.mqtt.client as mqtt
+import ssl
+import time
+import threading
+
+# MQTT Configuration``
+BROKER_URL = "mqtts://mqtt.dhan.co"
+CONFIG_MQTT_CLIENT_ID = "mqtt-12x"
+CONFIG_MQTT_USERNAME = "device"
+CONFIG_MQTT_PASSWORD = "device"
+STOCKDOCK_CONFIG_TOPIC = "stockdock/screen/nse-indices"
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -17,6 +29,89 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+class MQTTClient(QObject):
+    data_received = pyqtSignal(list)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.client = mqtt.Client(client_id=CONFIG_MQTT_CLIENT_ID, clean_session=True)
+        self.client.username_pw_set(CONFIG_MQTT_USERNAME, CONFIG_MQTT_PASSWORD)
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+        self.client.on_disconnect = self.on_disconnect
+        
+        # Extract host and port from MQTT URL
+        url = BROKER_URL.replace("mqtts://", "")
+        self.host = url
+        self.port = 8443  # Using port 8443 as specified
+        
+        # Set up TLS
+        self.client.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS)
+        self.client.tls_insecure_set(False)
+        
+        self.is_connected = False
+        self.reconnect_timer = QTimer()
+        self.reconnect_timer.timeout.connect(self.connect)
+        
+        # Add update timer for 2-second intervals
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.request_update)
+        
+    def connect(self):
+        try:
+            if not self.is_connected:
+                print(f"Connecting to MQTT broker at {self.host}:{self.port}")
+                self.client.connect(self.host, self.port, 60)
+                self.client.loop_start()
+        except Exception as e:
+            print(f"Failed to connect to MQTT broker: {e}")
+            if not self.reconnect_timer.isActive():
+                self.reconnect_timer.start(5000)  # Try to reconnect every 5 seconds
+    
+    def request_update(self):
+        if self.is_connected:
+            # Re-subscribe to trigger an update
+            self.client.unsubscribe(STOCKDOCK_CONFIG_TOPIC)
+            self.client.subscribe(STOCKDOCK_CONFIG_TOPIC)
+    
+    def on_connect(self, client, userdata, flags, rc):
+        if rc == 0:
+            print("Connected to MQTT broker")
+            self.is_connected = True
+            self.reconnect_timer.stop()
+            client.subscribe(STOCKDOCK_CONFIG_TOPIC)
+            # Start the update timer when connected
+            self.update_timer.start(2000)  # 2000 ms = 2 seconds
+        else:
+            print(f"Failed to connect to MQTT broker with code {rc}")
+            self.is_connected = False
+            if not self.reconnect_timer.isActive():
+                self.reconnect_timer.start(5000)
+    
+    def disconnect(self):
+        self.update_timer.stop()  # Stop the update timer
+        self.client.loop_stop()
+        self.client.disconnect()
+        self.is_connected = False
+    
+    def on_disconnect(self, client, userdata, rc):
+        print(f"Disconnected from MQTT broker with code {rc}")
+        self.is_connected = False
+        if not self.reconnect_timer.isActive():
+            self.reconnect_timer.start(5000)
+    
+    def on_message(self, client, userdata, msg):
+        try:
+            payload = msg.payload.decode('utf-8')
+            data = json.loads(payload)
+            if isinstance(data, list):
+                self.data_received.emit(data)
+                print(f"Received data with {len(data)} items")
+            else:
+                print(f"Unexpected data format: {type(data)}")
+        except Exception as e:
+            print(f"Error processing message: {e}")
+
 class GlassmorphicCard(QFrame):
     def __init__(self, title, value, change, parent=None):
         super().__init__(parent)
@@ -25,12 +120,13 @@ class GlassmorphicCard(QFrame):
         self.setStyleSheet("""
             QFrame#glassmorphicCard {
                 background-color: rgba(40, 50, 80, 0.5);
-                border-radius: 10px;
-                padding: 40px;
+                border-radius: 15px;
+                padding: 20px;
             }
         """)
         
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Set a fixed size policy to prevent layout changes
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(20)
@@ -50,28 +146,36 @@ class GlassmorphicCard(QFrame):
         self.change_color = "green" if self.change_value >= 0 else "red"
         
         self.front_widget = QWidget()
-        self.back_widget = QWidget()
-        
         self.setup_front_side()
-        self.setup_back_side()
-        
-        self.stacked_layout = QStackedWidget(self)
-        self.stacked_layout.addWidget(self.front_widget)
-        self.stacked_layout.addWidget(self.back_widget)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(self.stacked_layout)
+        main_layout.addWidget(self.front_widget)
         
-        self._rotation = 0
-        self.is_flipped = False
+        # Set initial fixed size
+        self.setFixedSize(500, 450)
+    
+    def update_data(self, value, change):
+        self.value = value
+        self.change = change
         
-        self.setMouseTracking(True)
+        try:
+            self.change_value = float(change.strip('%').replace(',', '.'))
+        except ValueError:
+            self.change_value = 0
+            
+        self.change_color = "green" if self.change_value >= 0 else "red"
+        
+        # Recreate the front widget with new data
+        self.front_widget.deleteLater()
+        self.front_widget = QWidget()
+        self.setup_front_side()
+        self.layout().addWidget(self.front_widget)
     
     def setup_front_side(self):
         layout = QVBoxLayout(self.front_widget)
-        layout.setContentsMargins(0, 10, 10, 10)
-        layout.setSpacing(10)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
         
         title_layout = QHBoxLayout()
         title_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -80,195 +184,102 @@ class GlassmorphicCard(QFrame):
         logo_path = f"logos/unique_{hash(self.title) % 83 + 1}.png"
         if os.path.exists(logo_path):
             logo_pixmap = QPixmap(logo_path)
-            logo_label.setPixmap(logo_pixmap.scaled(40,40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            logo_label.setPixmap(logo_pixmap.scaled(60, 60, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         title_layout.addWidget(logo_label)
         
-        title_layout.addSpacing(8)
+        title_layout.addSpacing(15)
         
-        title_font_size = 25
+        # Create a container for the title with fixed height
+        title_container = QWidget()
+        title_container.setFixedHeight(120)  # Increased from 100 to 120
+        title_container_layout = QVBoxLayout(title_container)
+        title_container_layout.setContentsMargins(0, 8, 0, 8)  # Increased padding
+        title_container_layout.setSpacing(4)  # Increased spacing between lines
+        
+        # Format title with different font sizes for each line
+        title_words = self.title.split()
+        first_line = " ".join(title_words[:2])
+        remaining_words = title_words[2:]
+        
+        # Base font size
+        base_font_size = 22
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
-            title_font_size = int(title_font_size * 1.2)
+            base_font_size = int(base_font_size * 1.2)
+        
+        # First line (largest font)
+        first_line_label = QLabel(first_line)
+        first_line_label.setFont(QFont("Segoe UI", base_font_size, QFont.Weight.Bold))
+        first_line_label.setStyleSheet("color: white;")
+        first_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        first_line_label.setMinimumHeight(int(base_font_size * 1.8))  # Increased height multiplier
+        title_container_layout.addWidget(first_line_label)
+        
+        # Second line (if exists, smaller font)
+        if len(remaining_words) > 0:
+            second_line = " ".join(remaining_words[:2])
+            second_line_label = QLabel(second_line)
+            second_font_size = int(base_font_size * 0.85)
+            second_line_label.setFont(QFont("Segoe UI", second_font_size, QFont.Weight.Bold))
+            second_line_label.setStyleSheet("color: white;")
+            second_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            second_line_label.setMinimumHeight(int(second_font_size * 1.8))  # Increased height multiplier
+            title_container_layout.addWidget(second_line_label)
             
-        title_label = QLabel(self.title)
-        title_label.setFont(QFont("Segoe UI", title_font_size, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: white;")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        title_layout.addWidget(title_label)
+            # Third line (if exists, smallest font)
+            if len(remaining_words) > 2:
+                third_line = " ".join(remaining_words[2:])
+                third_line_label = QLabel(third_line)
+                third_font_size = int(base_font_size * 0.7)
+                third_line_label.setFont(QFont("Segoe UI", third_font_size, QFont.Weight.Bold))
+                third_line_label.setStyleSheet("color: white;")
+                third_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                third_line_label.setMinimumHeight(int(third_font_size * 1.8))  # Increased height multiplier
+                title_container_layout.addWidget(third_line_label)
+        
+        title_container_layout.addStretch()
+        title_layout.addWidget(title_container)
         title_layout.addStretch()
         
         layout.addLayout(title_layout)
-        layout.addSpacing(50)
+        layout.addSpacing(40)
+        
+        # Create a fixed-size container for the value
+        value_container = QWidget()
+        value_container.setFixedHeight(70)
+        value_container_layout = QVBoxLayout(value_container)
+        value_container_layout.setContentsMargins(0, 0, 0, 0)
         
         value_label = QLabel(self.value)
-        value_label.setFont(QFont("Segoe UI", 25, QFont.Weight.Bold))
+        value_label.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
         value_label.setStyleSheet("color: white;")
         value_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(value_label)
+        value_container_layout.addWidget(value_label)
+        
+        layout.addWidget(value_container)
         
         layout.addStretch()
         
-        change_layout = QHBoxLayout()
+        # Create a fixed-size container for the change
+        change_container = QWidget()
+        change_container.setFixedHeight(60)
+        change_layout = QHBoxLayout(change_container)
+        change_layout.setContentsMargins(0, 0, 0, 0)
         change_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         change_label = QLabel(f"{self.change}")
-        change_label.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
+        change_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
         change_label.setStyleSheet(f"color: {self.change_color}; font-weight: bold;")
+        change_label.setMinimumWidth(160)
         
         arrow_label = QLabel()
         arrow_pixmap = QPixmap(resource_path("up_arrow.png" if self.change_value >= 0 else "down_arrow.png"))
-        arrow_label.setPixmap(arrow_pixmap.scaled(35,35, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        arrow_label.setPixmap(arrow_pixmap.scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         
         change_layout.addWidget(change_label)
         change_layout.addWidget(arrow_label)
         change_layout.addStretch()
         
-        layout.addLayout(change_layout)
-    
-    def setup_back_side(self):
-        layout = QVBoxLayout(self.back_widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        
-        title_label = QLabel(f"{self.title} - Performance Graph")
-        title_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: white;")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title_label)
-        
-        self.graph_widget = QFrame()
-        self.graph_widget.setStyleSheet("background-color: transparent;")
-        
-        def paintEvent(event):
-            painter = QPainter(self.graph_widget)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            
-            width = self.graph_widget.width()
-            height = self.graph_widget.height()
-            
-            painter.fillRect(0, 0, width, height, QColor(30, 40, 60, 200))
-            
-            painter.setPen(QPen(QColor("white"), 1))
-            
-            x_axis_y = int(height * 0.8)
-            painter.drawLine(40, x_axis_y, width - 10, x_axis_y)
-            painter.drawLine(40, 20, 40, x_axis_y)
-            
-            painter.setFont(QFont("Segoe UI", 8))
-            
-            time_periods = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-            x_step = (width - 50) / (len(time_periods) - 1)
-            
-            for i, period in enumerate(time_periods):
-                x = 40 + i * x_step
-                painter.drawText(QRectF(x - 15, x_axis_y + 5, 30, 20), Qt.AlignmentFlag.AlignCenter, period)
-                painter.drawLine(int(x), x_axis_y, int(x), x_axis_y + 5)
-            
-            max_value = 10
-            y_step = (x_axis_y - 20) / 4
-            
-            for i in range(5):
-                y = x_axis_y - i * y_step
-                value = i * max_value / 4
-                painter.drawText(QRectF(0, y - 10, 35, 20), Qt.AlignmentFlag.AlignRight, f"{value:.1f}%")
-                painter.drawLine(35, int(y), 40, int(y))
-            
-            painter.setPen(QPen(QColor(self.change_color), 2))
-            
-            import random
-            random.seed(abs(hash(self.title)))
-            
-            points = []
-            num_points = len(time_periods)
-            
-            trend_factor = self.change_value / 2
-            
-            for i in range(num_points):
-                x = 40 + i * x_step
-                base_value = random.uniform(2, 5)
-                trend = trend_factor * (i / (num_points - 1))
-                variation = random.uniform(-0.5, 0.5)
-                value = base_value + trend + variation
-                y = x_axis_y - (value / max_value) * (x_axis_y - 20)
-                points.append(QPoint(int(x), int(y)))
-            
-            for i in range(1, len(points)):
-                painter.drawLine(points[i-1], points[i])
-            
-            for point in points:
-                painter.setBrush(QColor(self.change_color))
-                painter.drawEllipse(point, 3, 3)
-            
-            last_point = points[-1]
-            value_text = f"{self.change} ({self.value})"
-            
-            text_rect = QRectF(last_point.x() + 5, last_point.y() - 15, 100, 30)
-            painter.fillRect(text_rect, QColor(30, 40, 60, 200))
-            
-            painter.setPen(QColor(self.change_color))
-            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, value_text)
-        
-        self.graph_widget.paintEvent = paintEvent
-        layout.addWidget(self.graph_widget)
-    
-    def _get_rotation(self):
-        return self._rotation
-    
-    def _set_rotation(self, value):
-        self._rotation = value
-        
-        if value >= 90 and not self.is_flipped:
-            self.stacked_layout.setCurrentIndex(1)
-            self.is_flipped = True
-        elif value < 90 and self.is_flipped:
-            self.stacked_layout.setCurrentIndex(0)
-            self.is_flipped = False
-        
-        self.update()
-    
-    rotation = pyqtProperty(float, _get_rotation, _set_rotation)
-    
-    def mouseDoubleClickEvent(self, event):
-        self.anim = QPropertyAnimation(self, b"rotation")
-        self.anim.setDuration(500)
-        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        
-        if not self.is_flipped:
-            self.anim.setStartValue(0)
-            self.anim.setEndValue(180)
-        else:
-            self.anim.setStartValue(180)
-            self.anim.setEndValue(0)
-        
-        self.anim.start()
-    
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        if self._rotation != 0:
-            painter.save()
-            
-            center_x = self.width() / 2
-            center_y = self.height() / 2
-            
-            painter.translate(center_x, center_y)
-            
-            scale_factor = abs(math.cos(math.radians(self._rotation)))
-            painter.scale(scale_factor, 1.0)
-            
-            transform = QTransform()
-            transform.rotate(self._rotation, Qt.Axis.YAxis)
-            painter.setTransform(transform, True)
-            
-            painter.translate(-center_x, -center_y)
-            
-            painter.restore()
-        
-        super().paintEvent(event)
-
-    def resizeEvent(self, event):
-        width = event.size().width()
-        self.setFixedHeight(int(width * 3/4))
-        super().resizeEvent(event)
+        layout.addWidget(change_container)
 
 class ContentWidget(QWidget):
     def __init__(self, title, parent=None):
@@ -286,7 +297,9 @@ class ContentWidget(QWidget):
         self.layout = QGridLayout(container)
         self.layout.setSpacing(20)
         
-        container.setMaximumWidth(int(QApplication.primaryScreen().size().width() * 0.90))
+        # Set container width to 80% of screen width
+        screen_width = QApplication.primaryScreen().size().width()
+        container.setFixedWidth(int(screen_width * 0.80))
         
         self.layout.setContentsMargins(10, 10, 10, 10)
         
@@ -305,7 +318,7 @@ class IndicesContent(ContentWidget):
         self.layout.addWidget(self.screens_stack, 0, 0, 1, 3)
         
         # NSE Indices data - 54 indices (9 screens × 6 cards)
-        indices_data = [
+        self.indices_data = [
             # Screen 1
             [
                 {"title": "Nifty 50", "value": "₹ 22,419.95", "change": "0.79%"},
@@ -391,10 +404,18 @@ class IndicesContent(ContentWidget):
         
         # Create all screens first
         self.screens = []
-        for screen_data in indices_data:
+        self.cards = []
+        
+        for screen_data in self.indices_data:
             screen = QWidget()
             screen_layout = QGridLayout(screen)
             screen_layout.setSpacing(20)
+            
+            # Set fixed spacing for the grid
+            screen_layout.setHorizontalSpacing(50)  # Increased spacing
+            screen_layout.setVerticalSpacing(50)  # Increased spacing
+            
+            screen_cards = []
             
             # Create and add all cards for this screen
             for card_index, card_data in enumerate(screen_data):
@@ -405,14 +426,17 @@ class IndicesContent(ContentWidget):
                 )
                 row = card_index // 3
                 col = card_index % 3
-                screen_layout.addWidget(card, row, col)
+                screen_layout.addWidget(card, row, col, Qt.AlignmentFlag.AlignCenter)
+                screen_cards.append(card)
             
+            # Set equal column and row stretches
             for i in range(3):
                 screen_layout.setColumnStretch(i, 1)
             for i in range(2):
                 screen_layout.setRowStretch(i, 1)
             
             self.screens.append(screen)
+            self.cards.append(screen_cards)
             self.screens_stack.addWidget(screen)
         
         # Initialize all screens
@@ -428,28 +452,38 @@ class IndicesContent(ContentWidget):
         self.animation_in_progress = False
         self.screens_stack.installEventFilter(self)
         
-        def eventFilter(self, obj, event):
-            if obj == self.screens_stack:
-                if event.type() == event.Type.MouseButtonPress:
-                    if not self.animation_in_progress:
-                        self.old_pos = event.pos()
-                    return True
-                
-                elif event.type() == event.Type.MouseButtonRelease:
-                    if self.old_pos is not None and not self.animation_in_progress:
-                        delta = event.pos().x() - self.old_pos.x()
-                        if abs(delta) > 50:
-                            if delta > 0 and self.current_screen > 0:
-                                self.change_screen(self.current_screen - 1)
-                            elif delta < 0 and self.current_screen < self.screens_stack.count() - 1:
-                                self.change_screen(self.current_screen + 1)
-                        self.old_pos = None
-                    return True
+        # Create a mapping from index names to card positions
+        self.index_map = {}
+        for screen_idx, screen_data in enumerate(self.indices_data):
+            for card_idx, card_data in enumerate(screen_data):
+                self.index_map[card_data["title"]] = (screen_idx, card_idx)
+    
+    def update_card_data(self, index_name, value, change):
+        if index_name in self.index_map:
+            screen_idx, card_idx = self.index_map[index_name]
+            if 0 <= screen_idx < len(self.cards) and 0 <= card_idx < len(self.cards[screen_idx]):
+                self.cards[screen_idx][card_idx].update_data(value, change)
+                print(f"Updated {index_name} with value: {value}, change: {change}")
+    
+    def eventFilter(self, obj, event):
+        if obj == self.screens_stack:
+            if event.type() == event.Type.MouseButtonPress:
+                if not self.animation_in_progress:
+                    self.old_pos = event.pos()
+                return True
             
-            return super().eventFilter(obj, event)
+            elif event.type() == event.Type.MouseButtonRelease:
+                if self.old_pos is not None and not self.animation_in_progress:
+                    delta = event.pos().x() - self.old_pos.x()
+                    if abs(delta) > 50:
+                        if delta > 0 and self.current_screen > 0:
+                            self.change_screen(self.current_screen - 1)
+                        elif delta < 0 and self.current_screen < self.screens_stack.count() - 1:
+                            self.change_screen(self.current_screen + 1)
+                    self.old_pos = None
+                return True
         
-        # Replace the eventFilter method
-        self.eventFilter = eventFilter.__get__(self)
+        return super().eventFilter(obj, event)
     
     def change_screen(self, index):
         if index != self.current_screen and not self.animation_in_progress:
@@ -471,28 +505,32 @@ class IndicesContent(ContentWidget):
                 current_widget.setFixedSize(widget_size)
                 new_widget.setFixedSize(widget_size)
                 
+                # Ensure both widgets are visible
                 current_widget.show()
                 new_widget.show()
                 new_widget.raise_()
                 
+                # Set initial positions
                 current_widget.move(zero_pos)
                 new_widget.move(start_pos)
                 
+                # Create animation group for parallel animations
                 anim_group = QParallelAnimationGroup(self)
                 
-                # Optimize animation settings for smoother performance
+                # Position animations with improved settings
                 current_anim = QPropertyAnimation(current_widget, b"pos")
-                current_anim.setDuration(150)  # Reduced duration
+                current_anim.setDuration(300)  # Increased duration for smoother effect
                 current_anim.setStartValue(zero_pos)
                 current_anim.setEndValue(end_pos)
-                current_anim.setEasingCurve(QEasingCurve.Type.Linear)  # Linear for smoother motion
+                current_anim.setEasingCurve(QEasingCurve.Type.OutCubic)  # Smoother easing curve
                 
                 new_anim = QPropertyAnimation(new_widget, b"pos")
-                new_anim.setDuration(150)  # Reduced duration
+                new_anim.setDuration(300)  # Increased duration for smoother effect
                 new_anim.setStartValue(start_pos)
                 new_anim.setEndValue(zero_pos)
-                new_anim.setEasingCurve(QEasingCurve.Type.Linear)  # Linear for smoother motion
+                new_anim.setEasingCurve(QEasingCurve.Type.OutCubic)  # Smoother easing curve
                 
+                # Add animations to group
                 anim_group.addAnimation(current_anim)
                 anim_group.addAnimation(new_anim)
                 
@@ -522,7 +560,6 @@ class GlassmorphicUI(QWidget):
         
         # Get screen dimensions
         self.screen = QApplication.primaryScreen().geometry()
-        self.is_rotated = False
         
         # Set initial dimensions
         self.updateDimensions()
@@ -549,8 +586,8 @@ class GlassmorphicUI(QWidget):
         
         self.main_layout.addStretch(7)
         
-        center_container = QWidget()
-        center_layout = QVBoxLayout(center_container)
+        self.center_container = QWidget()
+        center_layout = QVBoxLayout(self.center_container)
         center_layout.setContentsMargins(0, 0, 0, 0)
         center_layout.setSpacing(15)
         
@@ -568,48 +605,99 @@ class GlassmorphicUI(QWidget):
         self.indices_content = IndicesContent()
         center_layout.addWidget(self.indices_content)
         
-        self.main_layout.addWidget(center_container)
+        self.main_layout.addWidget(self.center_container)
         
         self.main_layout.addStretch(13)
         
         self.key_sequence = ""
         self.exit_sequence = "yogi"
-        self.rotation_sequence = "rot"
         self.minimize_sequence = "min"
+        
+        # Define mapping between index IDs and display names
+        self.index_id_to_name = {
+            "IDX-I-1": "Nifty 50",
+            "IDX-I-2": "Nifty Bank",
+            "IDX-I-3": "Nifty IT",
+            "IDX-I-4": "Nifty Auto",
+            "IDX-I-5": "Nifty FMCG",
+            "IDX-I-6": "Nifty Pharma",
+            "IDX-I-7": "Nifty Metal",
+            "IDX-I-8": "Nifty Media",
+            "IDX-I-9": "Nifty Realty",
+            "IDX-I-10": "Nifty PSU Bank",
+            "IDX-I-11": "Nifty Private Bank",
+            "IDX-I-12": "Nifty Energy",
+            "IDX-I-13": "Nifty Financial Services",
+            "IDX-I-14": "Nifty Consumer Durables",
+            "IDX-I-15": "Nifty Oil & Gas",
+            "IDX-I-16": "Nifty Healthcare",
+            "IDX-I-17": "Nifty PSE",
+            "IDX-I-18": "Nifty Infrastructure",
+            "IDX-I-19": "Nifty MNC",
+            "IDX-I-20": "Nifty Services Sector",
+            "IDX-I-21": "Nifty India Digital",
+            "IDX-I-22": "Nifty India Consumption",
+            "IDX-I-23": "Nifty CPSE",
+            "IDX-I-24": "Nifty India Manufacturing",
+            "IDX-I-25": "Nifty Midcap 50",
+            "IDX-I-26": "Nifty Midcap 100",
+            "IDX-I-27": "Nifty Smallcap 50",
+            "IDX-I-28": "Nifty Smallcap 100",
+            "IDX-I-29": "Nifty Midcap Liquid 15",
+            "IDX-I-30": "Nifty India Defence",
+            "IDX-I-31": "Nifty Alpha 50",
+            "IDX-I-32": "Nifty50 Value 20",
+            "IDX-I-33": "Nifty50 Equal Weight",
+            "IDX-I-34": "Nifty100 Equal Weight",
+            "IDX-I-35": "Nifty100 Low Volatility 30",
+            "IDX-I-36": "Nifty Alpha Low-Volatility 30",
+            "IDX-I-37": "Nifty200 Quality 30",
+            "IDX-I-38": "Nifty100 Quality 30",
+            "IDX-I-39": "Nifty50 Dividend Points",
+            "IDX-I-40": "Nifty Dividend Opportunities 50",
+            "IDX-I-41": "Nifty Growth Sectors 15",
+            "IDX-I-42": "Nifty100 ESG",
+            "IDX-I-43": "Nifty100 Enhanced ESG",
+            "IDX-I-44": "Nifty200 Momentum 30",
+            "IDX-I-45": "Nifty Commodities",
+            "IDX-I-46": "Nifty India Manufacturing",
+            "IDX-I-47": "Nifty Microcap 250",
+            "IDX-I-48": "Nifty Total Market",
+            "IDX-I-49": "Nifty500 Value 50",
+            "IDX-I-50": "Nifty Next 50",
+            "IDX-I-51": "Nifty100 Liquid 15",
+            "IDX-I-52": "Nifty MidSmallcap 400",
+            "IDX-I-53": "Nifty200 Alpha 30",
+            "IDX-I-54": "India VIX"
+        }
+        
+        # Initialize MQTT client
+        self.mqtt_client = MQTTClient(self)
+        self.mqtt_client.data_received.connect(self.handle_mqtt_data)
+        
+        # Connect to MQTT broker after a short delay to ensure UI is fully loaded
+        QTimer.singleShot(1000, self.mqtt_client.connect)
+    
+    def handle_mqtt_data(self, data):
+        try:
+            # Process the received MQTT data and update the UI
+            if isinstance(data, list):
+                for item in data:
+                    if 'key' in item and 'ltp' in item and 'p_ch' in item:
+                        index_id = item['key']
+                        if index_id in self.index_id_to_name:
+                            index_name = self.index_id_to_name[index_id]
+                            value = f"₹ {item['ltp']:,.2f}"
+                            change = f"{item['p_ch']:.2f}%"
+                            self.indices_content.update_card_data(index_name, value, change)
+                            print(f"Updated {index_name} with value: {value}, change: {change}")
+        except Exception as e:
+            print(f"Error handling MQTT data: {e}")
     
     def updateDimensions(self):
-        if not self.is_rotated:
-            self.setGeometry(0, 0, self.screen.width(), self.screen.height())
-            self.setFixedSize(self.screen.width(), self.screen.height())
-        else:
-            self.setGeometry(0, 0, self.screen.height(), self.screen.width())
-            self.setFixedSize(self.screen.height(), self.screen.width())
-    
-    def rotateDisplay(self):
-        self.is_rotated = not self.is_rotated
-        
-        self.updateDimensions()
-        
-        # Force a relayout of all widgets
-        self.updateGeometry()
-        self.adjustSize()
-        
-        # Update the background if it exists
-        if self.background and not self.background.isNull():
-            if self.is_rotated:
-                transform = QTransform().rotate(90)
-                self.background = self.background.transformed(transform)
-            else:
-                transform = QTransform().rotate(-90)
-                self.background = self.background.transformed(transform)
-        
-        # Force a repaint
-        self.update()
-        
-        # Make sure window is visible and on top
-        self.show()
-        self.raise_()
-        self.activateWindow()
+        # Simplified method - always use normal orientation
+        self.setGeometry(0, 0, self.screen.width(), self.screen.height())
+        self.setFixedSize(self.screen.width(), self.screen.height())
     
     def minimizeWindow(self):
         self.showMinimized()
@@ -630,12 +718,10 @@ class GlassmorphicUI(QWidget):
             if self.key_sequence.endswith(self.minimize_sequence):
                 self.minimizeWindow()
             
-            # Check for rotation sequence
-            if self.key_sequence.endswith(self.rotation_sequence):
-                self.rotateDisplay()
-            
             # Check for exit sequence
             if self.key_sequence.endswith(self.exit_sequence):
+                # Disconnect MQTT client before closing
+                self.mqtt_client.disconnect()
                 self.close()
             
             if len(self.key_sequence) > 10:
@@ -645,6 +731,11 @@ class GlassmorphicUI(QWidget):
             self.showNormal()
         
         super().keyPressEvent(event)
+    
+    def closeEvent(self, event):
+        # Disconnect MQTT client when closing the application
+        self.mqtt_client.disconnect()
+        super().closeEvent(event)
 
 if __name__ == "__main__":
     app = QApplication([])
