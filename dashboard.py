@@ -153,7 +153,7 @@ class GlassmorphicCard(QFrame):
         main_layout.addWidget(self.front_widget)
         
         # Set initial fixed size
-        self.setFixedSize(500, 450)
+        self.setFixedSize(590, 450)  # Increased width from 550 to 633 (15% more)
     
     def update_data(self, value, change):
         self.value = value
@@ -202,7 +202,7 @@ class GlassmorphicCard(QFrame):
         remaining_words = title_words[2:]
         
         # Base font size
-        base_font_size = 22
+        base_font_size = 23
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
             base_font_size = int(base_font_size * 1.2)
         
@@ -297,9 +297,9 @@ class ContentWidget(QWidget):
         self.layout = QGridLayout(container)
         self.layout.setSpacing(20)
         
-        # Set container width to 80% of screen width
+        # Set container width to 95% of screen width
         screen_width = QApplication.primaryScreen().size().width()
-        container.setFixedWidth(int(screen_width * 0.80))
+        container.setFixedWidth(int(screen_width * 0.98))  # Increased from 0.90 to 0.95
         
         self.layout.setContentsMargins(10, 10, 10, 10)
         
