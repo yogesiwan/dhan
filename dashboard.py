@@ -3,6 +3,8 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout,
                             QFrame, QStackedWidget, QSizePolicy, QWIDGETSIZE_MAX)
 from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap, QPen, QTransform, QKeyEvent, QPainterPath
 from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup, QRectF, pyqtProperty, QTimer, pyqtSignal, QObject
+
+from PyQt5.QtGui import QCursor
 import os
 import sys
 import math
@@ -11,6 +13,7 @@ import paho.mqtt.client as mqtt
 import ssl
 import time
 import threading
+import ctypes
 
 # MQTT Configuration``
 BROKER_URL = "mqtts://mqtt.dhan.co"
@@ -611,6 +614,7 @@ class GlassmorphicUI(QWidget):
         
         # Show the window
         self.show()
+        self.hide_cursor_completely()
         
         self.background = None
         
@@ -777,6 +781,38 @@ class GlassmorphicUI(QWidget):
         
         super().keyPressEvent(event)
     
+    def hide_cursor_completely(self):
+    # Hide cursor using Qt method
+      self.setCursor(Qt.CursorShape.BlankCursor)
+    
+    # For Windows - additional method
+      if sys.platform.startswith('win'):
+        try:
+            # Get the current cursor handle
+            cursor_info = ctypes.c_int()
+            ctypes.windll.user32.GetCursorInfo(ctypes.byref(cursor_info))
+            # Hide the cursor
+            ctypes.windll.user32.ShowCursor(False)
+        except Exception as e:
+            print(f"Error hiding Windows cursor: {e}")
+    
+    # For Linux - additional X11 method
+      elif sys.platform.startswith('linux'):
+        try:
+            # Create an invisible cursor
+            pixmap = QPixmap(1, 1)
+            pixmap.fill(Qt.transparent)
+            invisible_cursor = QCursor(pixmap)
+            QApplication.setOverrideCursor(invisible_cursor)
+            QApplication.changeOverrideCursor(invisible_cursor)
+        except Exception as e:
+            print(f"Error hiding Linux cursor: {e}")
+
+    def enterEvent(self, event):
+    # Hide cursor when mouse enters the window
+      self.hide_cursor_completely()
+      super().enterEvent(event)
+
     def closeEvent(self, event):
         # Disconnect MQTT client when closing the application
         self.mqtt_client.disconnect()
