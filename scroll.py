@@ -584,34 +584,37 @@ class IndicesContent(ContentWidget):
                         current_x = event.pos().x()
                         delta = current_x - self.last_x
                         
-                        if abs(delta) < self.scroll_threshold:
+                        # Reduced threshold for higher sensitivity
+                        if abs(delta) < 2:  # Reduced from 3
                             return True
                         
                         try:
                             raw_velocity = delta / delta_time
-                            max_velocity = 5000
+                            max_velocity = 4600  # Increased from 4000 (15% more)
                             self.scroll_velocity = max(min(raw_velocity, max_velocity), -max_velocity)
                         except ZeroDivisionError:
                             self.scroll_velocity = 0
                         
                         current_pos = self.scroll_container.pos().x()
-                        new_x = current_pos + delta
+                        new_x = current_pos + (delta * 1.15)  # Increased movement by 15%
                         
                         is_within_bounds, min_x = self.check_scroll_bounds(new_x)
                         if not is_within_bounds:
                             if new_x < min_x:
-                                resistance = (min_x - new_x) * 0.3
+                                resistance = (min_x - new_x) * 0.4
                                 new_x = min_x + resistance
                             else:
-                                resistance = new_x * 0.3
+                                resistance = new_x * 0.4
                                 new_x = resistance
                         
-                        smoothing_factor = 0.8
+                        # Enhanced smoothing
+                        smoothing_factor = 0.82  # Slightly reduced for more responsive feel
                         smoothed_x = (smoothing_factor * new_x) + ((1 - smoothing_factor) * current_pos)
                         
-                        if abs(smoothed_x - self.last_scroll_pos) >= self.scroll_threshold:
-                            rounded_x = int(round(smoothed_x))
-                            self.scroll_container.move(rounded_x, self.scroll_container.pos().y())
+                        # Only update if movement is significant
+                        if abs(smoothed_x - self.last_scroll_pos) >= 2:  # Reduced from 3
+                            rounded_x = round(smoothed_x * 2) / 2
+                            self.scroll_container.move(int(rounded_x), self.scroll_container.pos().y())
                             self.last_scroll_pos = smoothed_x
                             self.last_valid_x = rounded_x
                         
@@ -630,11 +633,12 @@ class IndicesContent(ContentWidget):
                         self.is_scrolling = False
                         self.setCursor(Qt.CursorShape.ArrowCursor)
                         
-                        if abs(self.scroll_velocity) > 500:
+                        # Adjusted velocity threshold and maximum
+                        if abs(self.scroll_velocity) > 350:  # Reduced from 400 for earlier activation
                             if self.scroll_velocity > 0:
-                                self.scroll_velocity = min(self.scroll_velocity, 3000)
+                                self.scroll_velocity = min(self.scroll_velocity, 2875)  # Increased from 2500 (15% more)
                             else:
-                                self.scroll_velocity = max(self.scroll_velocity, -3000)
+                                self.scroll_velocity = max(self.scroll_velocity, -2875)  # Increased from -2500 (15% more)
                             self.start_inertial_scroll()
                         
                         self.scroll_start_x = None
@@ -652,17 +656,17 @@ class IndicesContent(ContentWidget):
     
     def update_inertial_scroll(self):
         try:
-            if abs(self.scroll_velocity) < 50 or not self.is_animating:
+            if abs(self.scroll_velocity) < 35 or not self.is_animating:  # Reduced from 40 for longer scroll
                 self.scroll_timer.stop()
                 self.is_animating = False
                 return
             
-            friction = 0.95
+            friction = 0.94  # Reduced friction for longer scroll
             self.scroll_velocity *= friction
             
             delta = self.scroll_velocity * (self.scroll_timer.interval() / 1000.0)
             current_x = self.scroll_container.pos().x()
-            new_x = current_x + delta
+            new_x = current_x + (delta * 1.15)  # Increased movement by 15%
             
             is_within_bounds, min_x = self.check_scroll_bounds(new_x)
             if not is_within_bounds:
@@ -674,9 +678,10 @@ class IndicesContent(ContentWidget):
                 self.scroll_timer.stop()
                 self.is_animating = False
             
-            if abs(new_x - self.last_scroll_pos) >= self.scroll_threshold:
-                rounded_x = int(round(new_x))
-                self.scroll_container.move(rounded_x, self.scroll_container.pos().y())
+            # Only update if movement is significant
+            if abs(new_x - self.last_scroll_pos) >= 2:  # Reduced from 3
+                rounded_x = round(new_x * 2) / 2
+                self.scroll_container.move(int(rounded_x), self.scroll_container.pos().y())
                 self.last_scroll_pos = new_x
                 self.last_valid_x = rounded_x
             
