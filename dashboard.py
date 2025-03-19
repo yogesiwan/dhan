@@ -202,8 +202,8 @@ class GlassmorphicCard(QFrame):
         title_container = QWidget()
         title_container.setFixedHeight(120)  # Increased from 100 to 120
         title_container_layout = QVBoxLayout(title_container)
-        title_container_layout.setContentsMargins(0, 8, 0, 8)  # Increased padding
-        title_container_layout.setSpacing(4)  # Increased spacing between lines
+        title_container_layout.setContentsMargins(0, 0, 0, 0)  # Increased padding
+        title_container_layout.setSpacing(0)  # Increased spacing between lines
         
         # Format title with different font sizes for each line
         title_words = self.title.split()
@@ -211,7 +211,7 @@ class GlassmorphicCard(QFrame):
         remaining_words = title_words[2:]
         
         # Base font size
-        base_font_size = 24
+        base_font_size = 26
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
             base_font_size = int(base_font_size * 1.2)
         
@@ -227,7 +227,7 @@ class GlassmorphicCard(QFrame):
         if len(remaining_words) > 0:
             second_line = " ".join(remaining_words[:2])
             second_line_label = QLabel(second_line)
-            second_font_size = int(base_font_size * 0.85)
+            second_font_size = int(base_font_size * 0.8)
             second_line_label.setFont(QFont("Segoe UI", second_font_size, QFont.Weight.Bold))
             second_line_label.setStyleSheet("color: white;")
             second_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -374,26 +374,26 @@ class IndicesContent(ContentWidget):
                 {"title": "Nifty Media", "value": "₹ 2,340.85", "change": "-0.78%"},
                 {"title": "Nifty Realty", "value": "₹ 890.45", "change": "0.92%"},
                 {"title": "Nifty PSU Bank", "value": "₹ 4,570.30", "change": "1.23%"},
-                {"title": "Nifty Private Bank", "value": "₹ 23,780.55", "change": "0.67%"},
-                {"title": "Nifty Energy", "value": "₹ 34,560.90", "change": "-0.45%"}
+                {"title": "Nifty 50", "value": "₹ 23,780.55", "change": "0.67%"},
+                {"title": "Nifty IT", "value": "₹ 34,560.90", "change": "-0.45%"}
             ],
             # Screen 3
             [
-                {"title": "Nifty Financial Services", "value": "₹ 19,870.35", "change": "0.56%"},
-                {"title": "Nifty Consumer Durables", "value": "₹ 31,240.80", "change": "-0.23%"},
+                {"title": "Nifty Media", "value": "₹ 19,870.35", "change": "0.56%"},
+                {"title": "Nifty Pharma", "value": "₹ 31,240.80", "change": "-0.23%"},
                 {"title": "Nifty Oil & Gas", "value": "₹ 12,450.65", "change": "0.89%"},
                 {"title": "Nifty Healthcare", "value": "₹ 9,780.40", "change": "0.34%"},
                 {"title": "Nifty PSE", "value": "₹ 5,670.25", "change": "-0.67%"},
-                {"title": "Nifty Infrastructure", "value": "₹ 6,890.15", "change": "0.78%"}
+                {"title": "Nifty Auto", "value": "₹ 6,890.15", "change": "0.78%"}
             ],
             # Screen 4
             [
                 {"title": "Nifty MNC", "value": "₹ 21,340.75", "change": "0.45%"},
                 {"title": "Nifty Services Sector", "value": "₹ 27,890.60", "change": "-0.34%"},
-                {"title": "Nifty India Digital", "value": "₹ 8,970.30", "change": "1.56%"},
-                {"title": "Nifty India Consumption", "value": "₹ 11,230.85", "change": "0.23%"},
+                {"title": "Nifty IT", "value": "₹ 8,970.30", "change": "1.56%"},
+                {"title": "Nifty Metal", "value": "₹ 11,230.85", "change": "0.23%"},
                 {"title": "Nifty CPSE", "value": "₹ 3,450.40", "change": "-0.89%"},
-                {"title": "Nifty India Manufacturing", "value": "₹ 4,560.95", "change": "0.67%"}
+                {"title": "Nifty Bank", "value": "₹ 4,560.95", "change": "0.67%"}
             ],
             # Screen 5
             [
@@ -408,36 +408,36 @@ class IndicesContent(ContentWidget):
             [
                 {"title": "Nifty Alpha 50", "value": "₹ 18,920.35", "change": "0.34%"},
                 {"title": "Nifty50 Value 20", "value": "₹ 13,450.80", "change": "-0.67%"},
-                {"title": "Nifty50 Equal Weight", "value": "₹ 16,780.65", "change": "0.89%"},
-                {"title": "Nifty100 Equal Weight", "value": "₹ 14,560.40", "change": "0.45%"},
+                {"title": "Nifty IT", "value": "₹ 16,780.65", "change": "0.89%"},
+                {"title": "Nifty Metal", "value": "₹ 14,560.40", "change": "0.45%"},
                 {"title": "Nifty100 Low Volatility 30", "value": "₹ 11,890.25", "change": "-0.23%"},
                 {"title": "Nifty Alpha Low-Volatility 30", "value": "₹ 8,670.60", "change": "1.34%"}
             ],
             # Screen 7
             [
-                {"title": "Nifty200 Quality 30", "value": "₹ 17,890.30", "change": "0.67%"},
-                {"title": "Nifty100 Quality 30", "value": "₹ 15,450.85", "change": "-0.45%"},
-                {"title": "Nifty50 Dividend Points", "value": "₹ 12,670.40", "change": "0.91%"},
-                {"title": "Nifty Dividend Opportunities 50", "value": "₹ 9,890.95", "change": "0.23%"},
-                {"title": "Nifty Growth Sectors 15", "value": "₹ 7,450.20", "change": "-0.78%"},
-                {"title": "Nifty100 ESG", "value": "₹ 5,670.75", "change": "1.12%"}
+                {"title": "Nifty 200 Quality 30", "value": "₹ 17,890.30", "change": "0.67%"},
+                {"title": "Nifty 100 Quality 30", "value": "₹ 15,450.85", "change": "-0.45%"},
+                {"title": "Nifty 50 Dividend Points", "value": "₹ 12,670.40", "change": "0.91%"},
+                {"title": "Nifty MNC", "value": "₹ 9,890.95", "change": "0.23%"},
+                {"title": "Nifty IT", "value": "₹ 7,450.20", "change": "-0.78%"},
+                {"title": "Nifty 100 ESG", "value": "₹ 5,670.75", "change": "1.12%"}
             ],
             # Screen 8
             [
-                {"title": "Nifty100 Enhanced ESG", "value": "₹ 14,560.30", "change": "0.45%"},
-                {"title": "Nifty200 Momentum 30", "value": "₹ 11,890.85", "change": "-0.34%"},
-                {"title": "Nifty Commodities", "value": "₹ 8,970.40", "change": "1.23%"},
-                {"title": "Nifty India Manufacturing", "value": "₹ 6,780.95", "change": "0.56%"},
+                {"title": "Nifty 100 Enhanced ESG", "value": "₹ 14,560.30", "change": "0.45%"},
+                {"title": "Nifty 200 Momentum 30", "value": "₹ 11,890.85", "change": "-0.34%"},
+                {"title": "Nifty IT", "value": "₹ 8,970.40", "change": "1.23%"},
+                {"title": "Nifty Media", "value": "₹ 6,780.95", "change": "0.56%"},
                 {"title": "Nifty Microcap 250", "value": "₹ 4,560.20", "change": "-0.89%"},
                 {"title": "Nifty Total Market", "value": "₹ 3,450.75", "change": "0.67%"}
             ],
             # Screen 9
             [
-                {"title": "Nifty500 Value 50", "value": "₹ 13,670.30", "change": "0.91%"},
+                {"title": "Nifty 500 Value 50", "value": "₹ 13,670.30", "change": "0.91%"},
                 {"title": "Nifty Next 50", "value": "₹ 10,890.85", "change": "-0.45%"},
-                {"title": "Nifty100 Liquid 15", "value": "₹ 8,450.40", "change": "1.23%"},
-                {"title": "Nifty MidSmallcap 400", "value": "₹ 6,780.95", "change": "0.34%"},
-                {"title": "Nifty200 Alpha 30", "value": "₹ 4,560.20", "change": "-0.67%"},
+                {"title": "Nifty 100 Liquid 15", "value": "₹ 8,450.40", "change": "1.23%"},
+                {"title": "Nifty Metal", "value": "₹ 6,780.95", "change": "0.34%"},
+                {"title": "Nifty 200 Alpha 30", "value": "₹ 4,560.20", "change": "-0.67%"},
                 {"title": "India VIX", "value": "₹ 786.0", "change": "-0.79%"}
             ]
         ]
