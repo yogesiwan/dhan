@@ -266,17 +266,17 @@ class GlassmorphicCard(QFrame):
         change_container = QWidget()
         change_container.setFixedHeight(60)
         change_layout = QHBoxLayout(change_container)
-        change_layout.setContentsMargins(0, 0, 0, 0)
+        change_layout.setContentsMargins(0, 15, 0, 0)
         change_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         change_label = QLabel(f"{self.change}")
-        change_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        change_label.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
         change_label.setStyleSheet(f"color: {self.change_color}; font-weight: bold;")
-        change_label.setMinimumWidth(160)
+        change_label.setMinimumWidth(100)
         
         arrow_label = QLabel()
         arrow_pixmap = QPixmap(resource_path("up_arrow.png" if self.change_value >= 0 else "down_arrow.png"))
-        arrow_label.setPixmap(arrow_pixmap.scaled(30, 30, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        arrow_label.setPixmap(arrow_pixmap.scaled(27, 27, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         
         change_layout.addWidget(change_label)
         change_layout.addWidget(arrow_label)

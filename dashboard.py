@@ -37,7 +37,10 @@ class MQTTClient(QObject):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.client = mqtt.Client(client_id=CONFIG_MQTT_CLIENT_ID, clean_session=True)
+        # Update to use protocol v5 and new API version
+        self.client = mqtt.Client(client_id=CONFIG_MQTT_CLIENT_ID, 
+                                protocol=mqtt.MQTTv5,
+                                clean_session=True)
         self.client.username_pw_set(CONFIG_MQTT_USERNAME, CONFIG_MQTT_PASSWORD)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
@@ -156,7 +159,7 @@ class GlassmorphicCard(QFrame):
         main_layout.addWidget(self.front_widget)
         
         # Set initial fixed size
-        self.setFixedSize(590, 450)  # Increased width from 550 to 633 (15% more)
+        self.setFixedSize(590, 450)
     
     def update_data(self, value, change):
         self.value = value
@@ -178,8 +181,9 @@ class GlassmorphicCard(QFrame):
     def setup_front_side(self):
         layout = QVBoxLayout(self.front_widget)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        layout.setSpacing(10)  # Reduced from 20 to 10 for tighter overall spacing
         
+        # Title section
         title_layout = QHBoxLayout()
         title_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
@@ -192,32 +196,31 @@ class GlassmorphicCard(QFrame):
         
         title_layout.addSpacing(15)
         
-        # Create a container for the title with fixed height
+        # Title container with fixed height
         title_container = QWidget()
-        title_container.setFixedHeight(120)  # Increased from 100 to 120
+        title_container.setFixedHeight(120)
         title_container_layout = QVBoxLayout(title_container)
-        title_container_layout.setContentsMargins(0, 8, 0, 8)  # Increased padding
-        title_container_layout.setSpacing(4)  # Increased spacing between lines
+        title_container_layout.setContentsMargins(0, 8, 0, 8)
+        title_container_layout.setSpacing(4)
         
-        # Format title with different font sizes for each line
+        # Format title with different font sizes
         title_words = self.title.split()
         first_line = " ".join(title_words[:2])
         remaining_words = title_words[2:]
         
-        # Base font size
         base_font_size = 24
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
             base_font_size = int(base_font_size * 1.2)
         
-        # First line (largest font)
+        # First line
         first_line_label = QLabel(first_line)
         first_line_label.setFont(QFont("Segoe UI", base_font_size, QFont.Weight.Bold))
         first_line_label.setStyleSheet("color: white;")
         first_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        first_line_label.setMinimumHeight(int(base_font_size * 1.8))  # Increased height multiplier
+        first_line_label.setMinimumHeight(int(base_font_size * 1.8))
         title_container_layout.addWidget(first_line_label)
         
-        # Second line (if exists, smaller font)
+        # Second and third lines if they exist
         if len(remaining_words) > 0:
             second_line = " ".join(remaining_words[:2])
             second_line_label = QLabel(second_line)
@@ -225,10 +228,9 @@ class GlassmorphicCard(QFrame):
             second_line_label.setFont(QFont("Segoe UI", second_font_size, QFont.Weight.Bold))
             second_line_label.setStyleSheet("color: white;")
             second_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            second_line_label.setMinimumHeight(int(second_font_size * 1.8))  # Increased height multiplier
+            second_line_label.setMinimumHeight(int(second_font_size * 1.8))
             title_container_layout.addWidget(second_line_label)
             
-            # Third line (if exists, smallest font)
             if len(remaining_words) > 2:
                 third_line = " ".join(remaining_words[2:])
                 third_line_label = QLabel(third_line)
@@ -236,7 +238,7 @@ class GlassmorphicCard(QFrame):
                 third_line_label.setFont(QFont("Segoe UI", third_font_size, QFont.Weight.Bold))
                 third_line_label.setStyleSheet("color: white;")
                 third_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-                third_line_label.setMinimumHeight(int(third_font_size * 1.8))  # Increased height multiplier
+                third_line_label.setMinimumHeight(int(third_font_size * 1.8))
                 title_container_layout.addWidget(third_line_label)
         
         title_container_layout.addStretch()
@@ -244,11 +246,11 @@ class GlassmorphicCard(QFrame):
         title_layout.addStretch()
         
         layout.addLayout(title_layout)
-        layout.addSpacing(40)
+        layout.addSpacing(20)  # Reduced from 40 to 20
         
-        # Create a fixed-size container for the value
+        # Value section with increased spacing from bottom
         value_container = QWidget()
-        value_container.setFixedHeight(70)
+        value_container.setFixedHeight(90)  # Increased from 70 to 90
         value_container_layout = QVBoxLayout(value_container)
         value_container_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -260,9 +262,10 @@ class GlassmorphicCard(QFrame):
         
         layout.addWidget(value_container)
         
-        layout.addStretch()
+        # Increased stretch to push the value up
+        layout.addStretch(2)  # Increased stretch factor
         
-        # Create a fixed-size container for the change
+        # Change section
         change_container = QWidget()
         change_container.setFixedHeight(60)
         change_layout = QHBoxLayout(change_container)
@@ -491,6 +494,87 @@ class IndicesContent(ContentWidget):
         for screen_idx, screen_data in enumerate(self.indices_data):
             for card_idx, card_data in enumerate(screen_data):
                 self.index_map[card_data["title"]] = (screen_idx, card_idx)
+        
+        # Simplified scroll state management
+        self.is_scrolling = False
+        self.last_x = 0
+        self.last_valid_x = 0
+        
+        # Create scroll container and setup
+        self.scroll_container = QWidget()
+        self.scroll_container.setObjectName("scrollContainer")
+        self.scroll_container.setStyleSheet("""
+            QWidget#scrollContainer {
+                background: transparent;
+            }
+        """)
+        
+        # Get screen dimensions
+        screen_width = QApplication.primaryScreen().size().width()
+        
+        # Create layout for scroll area
+        scroll_area = QWidget()
+        scroll_area.setFixedHeight(680)
+        scroll_area.setFixedWidth(screen_width)
+        
+        scroll_area_layout = QHBoxLayout(scroll_area)
+        scroll_area_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_area_layout.setSpacing(0)
+        scroll_area_layout.addWidget(self.scroll_container, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # Create grid layout for cards
+        scroll_layout = QGridLayout(self.scroll_container)
+        scroll_layout.setContentsMargins(150, 20, 150, 20)
+        scroll_layout.setHorizontalSpacing(50)
+        scroll_layout.setVerticalSpacing(70)
+        
+        # Add scroll area to main layout
+        self.layout.addWidget(scroll_area, 0, 0, 1, 3, Qt.AlignmentFlag.AlignCenter)
+        
+        # Initialize cards
+        self.cards = []
+        cards_per_row = 3
+        total_rows = 2
+        total_cards = sum(len(screen) for screen in self.indices_data)
+        total_columns = math.ceil(total_cards / (total_rows * cards_per_row))
+        
+        # Calculate container width to fit all cards
+        card_width = 590
+        horizontal_spacing = 50
+        screen_width = (card_width * cards_per_row) + (horizontal_spacing * (cards_per_row - 1))
+        
+        # Calculate total width with extra padding on both sides
+        total_width = (screen_width * total_columns) + 300  # Increased padding from 100 to 300
+        self.scroll_container.setFixedWidth(total_width)
+        
+        # Create and add cards
+        card_index = 0
+        for screen_data in self.indices_data:
+            screen_cards = []
+            for card_data in screen_data:
+                card = GlassmorphicCard(
+                    card_data["title"],
+                    card_data["value"],
+                    card_data["change"]
+                )
+                
+                row = (card_index % (cards_per_row * total_rows)) // cards_per_row
+                col = card_index // (cards_per_row * total_rows) * cards_per_row + (card_index % cards_per_row)
+                
+                scroll_layout.addWidget(card, row, col, Qt.AlignmentFlag.AlignCenter)
+                screen_cards.append(card)
+                card_index += 1
+            
+            self.cards.append(screen_cards)
+        
+        # Create index mapping
+        self.index_map = {}
+        for screen_idx, screen_data in enumerate(self.indices_data):
+            for card_idx, card_data in enumerate(screen_data):
+                self.index_map[card_data["title"]] = (screen_idx, card_idx)
+        
+        # Enable smooth scrolling
+        self.scroll_container.installEventFilter(self)
     
     def update_card_data(self, index_name, value, change):
         if index_name in self.index_map:
@@ -499,22 +583,49 @@ class IndicesContent(ContentWidget):
                 self.cards[screen_idx][card_idx].update_data(value, change)
                 print(f"Updated {index_name} with value: {value}, change: {change}")
     
+    def reset_scroll_state(self):
+        """Reset all scrolling-related states"""
+        self.is_scrolling = False
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+    
+    def check_scroll_bounds(self, new_x):
+        """Check if the new position is within valid bounds"""
+        min_x = -self.scroll_container.width() + self.width()
+        return max(min(new_x, 0), min_x)
+    
     def eventFilter(self, obj, event):
-        if obj == self.screens_stack:
+        if obj == self.scroll_container:
             if event.type() == event.Type.MouseButtonPress:
-                if not self.animation_in_progress:
-                    self.old_pos = event.pos()
+                self.is_scrolling = True
+                self.last_x = event.pos().x()
+                self.last_valid_x = self.scroll_container.pos().x()
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                return True
+            
+            elif event.type() == event.Type.MouseMove and self.is_scrolling:
+                try:
+                    current_x = event.pos().x()
+                    delta = self.last_x - current_x
+                    
+                    current_pos = self.scroll_container.pos().x()
+                    new_x = current_pos - delta
+                    
+                    # Apply bounds checking
+                    bounded_x = self.check_scroll_bounds(new_x)
+                    
+                    # Update position
+                    self.scroll_container.move(int(bounded_x), self.scroll_container.pos().y())
+                    self.last_valid_x = bounded_x
+                    self.last_x = current_x
+                    
+                except Exception as e:
+                    print(f"Error in mouse move event: {e}")
+                    self.scroll_container.move(self.last_valid_x, self.scroll_container.pos().y())
+                    self.reset_scroll_state()
                 return True
             
             elif event.type() == event.Type.MouseButtonRelease:
-                if self.old_pos is not None and not self.animation_in_progress:
-                    delta = event.pos().x() - self.old_pos.x()
-                    if abs(delta) > 50:
-                        if delta > 0 and self.current_screen > 0:
-                            self.change_screen(self.current_screen - 1)
-                        elif delta < 0 and self.current_screen < self.screens_stack.count() - 1:
-                            self.change_screen(self.current_screen + 1)
-                    self.old_pos = None
+                self.reset_scroll_state()
                 return True
         
         return super().eventFilter(obj, event)
