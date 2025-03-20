@@ -1,4 +1,3 @@
-
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout, 
                             QGraphicsDropShadowEffect, QHBoxLayout, QVBoxLayout, 
                             QFrame, QStackedWidget, QSizePolicy, QWIDGETSIZE_MAX)
@@ -185,8 +184,17 @@ class GlassmorphicCard(QFrame):
         
         logo_label = QLabel()
         logo_path = f"logos/unique_{hash(self.title) % 83 + 1}.png"
+        fallback_path = "logos/unique_1.png"
+        
+        # Try to load the calculated logo path, fallback to unique_1.png if it doesn't exist
         if os.path.exists(logo_path):
             logo_pixmap = QPixmap(logo_path)
+        else:
+            # Use fallback logo
+            logo_path = fallback_path
+            logo_pixmap = QPixmap(logo_path)
+            
+        if not logo_pixmap.isNull():
             logo_label.setPixmap(logo_pixmap.scaled(60, 60, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         title_layout.addWidget(logo_label)
         
@@ -430,7 +438,7 @@ class IndicesContent(ContentWidget):
                 {"title": "Nifty 500 Value 50", "value": "₹ 13,670.30", "change": "0.91%"},
                 {"title": "Nifty Next 50", "value": "₹ 10,890.85", "change": "-0.45%"},
                 {"title": "Nifty 100 Liquid 15", "value": "₹ 8,450.40", "change": "1.23%"},
-                {"title": "Nifty MidSmallcap 400", "value": "₹ 6,780.95", "change": "0.34%"},
+                {"title": "Nifty IT", "value": "₹ 6,780.95", "change": "0.34%"},
                 {"title": "Nifty 200 Alpha 30", "value": "₹ 4,560.20", "change": "-0.67%"},
                 {"title": "India VIX", "value": "₹ 786.0", "change": "-0.79%"}
             ]
@@ -447,7 +455,7 @@ class IndicesContent(ContentWidget):
             
             # Set fixed spacing for the grid
             screen_layout.setHorizontalSpacing(50)  # Increased spacing
-            screen_layout.setVerticalSpacing(70)  # Increased spacing
+            screen_layout.setVerticalSpacing(40)  # Increased spacing
             
             screen_cards = []
             
