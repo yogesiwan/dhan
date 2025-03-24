@@ -535,7 +535,7 @@ class IndicesContent(ContentWidget):
         self.old_pos = None
         self.animation_in_progress = False
         self.screens_stack.installEventFilter(self)
-    
+        
     def init_scroll_view(self):
         # Create scroll view if it doesn't exist
         if self.scroll_view is not None:
@@ -593,9 +593,9 @@ class IndicesContent(ContentWidget):
         
         # Create grid layout for the cards with proper spacing
         scroll_layout = QGridLayout(self.scroll_container)
-        scroll_layout.setContentsMargins(50, 20, 50, 20)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
         scroll_layout.setHorizontalSpacing(50)
-        scroll_layout.setVerticalSpacing(70)
+        scroll_layout.setVerticalSpacing(50)
         
         main_layout.addWidget(content_container, 0, Qt.AlignmentFlag.AlignCenter)
         
@@ -608,8 +608,8 @@ class IndicesContent(ContentWidget):
         # Calculate container width to fit all cards
         card_width = 590  # Match card size from both.py
         card_height = 430  # Match card size from both.py
-        horizontal_spacing = 50
-        vertical_spacing = 70
+        horizontal_spacing = 15
+        vertical_spacing = 50  # Changed from 70 to 50 to match slide mode spacing
         
         # Calculate the width needed for one screen (3x2 grid)
         screen_width = (card_width * cards_per_row) + (horizontal_spacing * (cards_per_row - 1)) + 100
@@ -713,7 +713,7 @@ class IndicesContent(ContentWidget):
                 if 0 <= screen_idx < len(self.scroll_cards) and 0 <= card_idx < len(self.scroll_cards[screen_idx]):
                     self.scroll_cards[screen_idx][card_idx].update_data(value, change)
             
-            print(f"Updated {index_name} with value: {value}, change: {change}")
+                print(f"Updated {index_name} with value: {value}, change: {change}")
     
     def eventFilter(self, obj, event):
         # Handle slide view events
@@ -993,18 +993,27 @@ class GlassmorphicUI(QWidget):
         center_layout.setSpacing(15)
         
         title_layout = QHBoxLayout()
-        title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
+        # Create a container for the title in the center
+        title_container = QWidget()
+        title_container_layout = QHBoxLayout(title_container)
+        title_container_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Add title to its container
         self.title_label = QLabel("NSE Indices")
-        self.title_label.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
+        self.title_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         self.title_label.setStyleSheet("color: white;")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_layout.addWidget(self.title_label)
+        title_container_layout.addWidget(self.title_label)
+        
+        # Add button container on the right
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
         
         # Add toggle button for switching between slide and scroll modes
-        title_layout.addSpacing(20)
         self.toggle_mode_button = QPushButton("Slide Mode")
-        self.toggle_mode_button.setFont(QFont("Segoe UI", 12))
+        self.toggle_mode_button.setFont(QFont("Segoe UI", 20))
         self.toggle_mode_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.toggle_mode_button.setStyleSheet("""
             QPushButton {
@@ -1022,7 +1031,11 @@ class GlassmorphicUI(QWidget):
             }
         """)
         self.toggle_mode_button.clicked.connect(self.toggle_view_mode)
-        title_layout.addWidget(self.toggle_mode_button)
+        button_layout.addWidget(self.toggle_mode_button)
+        
+        # Add both containers to the title layout
+        title_layout.addWidget(title_container, 4)  # Title takes 4/5 of the space
+        title_layout.addWidget(button_container, 1)  # Button takes 1/5 of the space
         
         center_layout.addLayout(title_layout)
         
@@ -1198,7 +1211,7 @@ class GlassmorphicUI(QWidget):
 
     def enterEvent(self, event):
     # Hide cursor when mouse enters the window
-      self.hide_cursor_completely()
+    #   self.hide_cursor_completely()
       super().enterEvent(event)
 
     def closeEvent(self, event):
