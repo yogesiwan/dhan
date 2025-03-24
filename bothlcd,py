@@ -448,17 +448,20 @@ class IndicesContent(ContentWidget):
         self.last_x = 0
         self.last_time = 0
         self.last_scroll_pos = 0
-        self.scroll_threshold = 2
+        self.scroll_threshold = 1  # Minimal threshold for detecting movement
         self.last_valid_x = 0
         self.scroll_start_x = None
         self.scroll_cards = []
         
-        # Scroll sensitivity multiplier - higher value = faster scrolling
-        self.scroll_sensitivity = 2.5
+        # Simple scroll sensitivity - fixed multiplier
+        self.scroll_sensitivity = 2.0  # Fixed sensitivity for predictable response
         
-        # Movement smoothing variables
+        # Movement smoothing variables - simplified
         self.last_movements = []
-        self.movement_smoothing_window = 3
+        
+        # Tracking for slow movements
+        self.last_slow_movement_time = 0
+        self.slow_movement_threshold = 5  # Pixels per event considered "slow"
     
     def init_slide_view(self):
         # Create screens stack for slide view
@@ -599,15 +602,15 @@ class IndicesContent(ContentWidget):
         scroll_area_layout = QHBoxLayout(scroll_area)
         scroll_area_layout.setContentsMargins(0, 0, 0, 0)
         scroll_area_layout.setSpacing(0)
-        # Explicitly set alignment to None to prevent Qt from auto-aligning
+        # Use explicit no-alignment to prevent Qt from auto-aligning
         scroll_area_layout.addWidget(self.scroll_container, 0)
         
         # Create grid layout for the cards with proper spacing
         scroll_layout = QGridLayout(self.scroll_container)
         scroll_layout.setContentsMargins(0, 0, 0, 0)
         scroll_layout.setHorizontalSpacing(50)
-        scroll_layout.setVerticalSpacing(40)  # Match dashboard.py
-        # Disable alignment for the grid layout
+        scroll_layout.setVerticalSpacing(40)
+        # Disable automatic alignment by explicitly setting alignment to left/top
         scroll_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         
         main_layout.addWidget(content_container, 0, Qt.AlignmentFlag.AlignCenter)
@@ -618,11 +621,11 @@ class IndicesContent(ContentWidget):
         total_cards = sum(len(screen) for screen in self.indices_data)
         total_columns = math.ceil(total_cards / (total_rows * cards_per_row))
         
-        # Calculate container width to fit all cards - use dashboard.py dimensions
-        card_width = 470  # Match card size from dashboard.py
-        card_height = 270  # Match card size from dashboard.py
+        # Calculate container width to fit all cards
+        card_width = 470
+        card_height = 270
         horizontal_spacing = 50
-        vertical_spacing = 40  # Match dashboard.py
+        vertical_spacing = 40
         
         # Calculate the width needed for one screen (3x2 grid)
         screen_width = (card_width * cards_per_row) + (horizontal_spacing * (cards_per_row - 1)) + 100
@@ -643,7 +646,7 @@ class IndicesContent(ContentWidget):
                     card_data["change"]
                 )
                 
-                # Set fixed size and policy for each card to prevent auto-resizing
+                # Set fixed size policy to prevent auto-resizing
                 card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
                 
                 # Calculate position in the grid
@@ -661,20 +664,22 @@ class IndicesContent(ContentWidget):
         # Add scrolling animation properties
         self.scroll_animation = QPropertyAnimation(self.scroll_container, b"pos")
         self.scroll_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self.scroll_animation.setDuration(500)  # 500ms duration
+        self.scroll_animation.setDuration(500)
         
+        # Initialize the scroll timer for inertial scrolling
         self.scroll_timer = QTimer()
         self.scroll_timer.timeout.connect(self.update_inertial_scroll)
-        self.scroll_timer.setInterval(16)  # 60 FPS
+        self.scroll_timer.setInterval(16)  # ~60 FPS
         
         # Initialize velocity tracking
         self.velocity_samples = []
+        self.last_movements = []
         
-        # Enable smooth scrolling
+        # Set up event filtering for scroll container
         self.scroll_container.installEventFilter(self)
         
         # Set fixed dimensions for the scroll area
-        scroll_area.setFixedHeight(680)  # Match dashboard.py container height
+        scroll_area.setFixedHeight(680)
         scroll_area.setFixedWidth(screen_width)
         
         # Add the scroll view to layout
@@ -714,6 +719,7 @@ class IndicesContent(ContentWidget):
         self.scroll_start_x = None
         self.velocity_samples = []
         self.last_movements = []
+        self.last_slow_movement_time = 0  # Reset slow movement time tracking
         self.setCursor(Qt.CursorShape.ArrowCursor)
         if hasattr(self, 'scroll_timer') and self.scroll_timer.isActive():
             self.scroll_timer.stop()
@@ -748,25 +754,18 @@ class IndicesContent(ContentWidget):
                 print(f"Updated {index_name} with value: {value}, change: {change}")
     
     def smooth_movement(self, delta):
-        """Apply smoothing to movement to reduce jitter"""
-        # Add current movement to history
+        """Apply simple smoothing to movement - basic and reliable approach"""
+        # For very small movements, use as-is to avoid vibration during slow scrolling
+        if abs(delta) < 3:
+            return delta
+            
+        # Keep only a small history of movements to prevent lag
         self.last_movements.append(delta)
-        
-        # Keep only the last few movements
-        if len(self.last_movements) > self.movement_smoothing_window:
+        if len(self.last_movements) > 3:  # Keep a small window for responsiveness
             self.last_movements.pop(0)
         
-        # Calculate weighted average (more recent movements have higher weight)
-        total_weight = 0
-        weighted_sum = 0
-        
-        for i, movement in enumerate(self.last_movements):
-            weight = i + 1  # Weight increases with recency
-            weighted_sum += movement * weight
-            total_weight += weight
-        
-        # Return smoothed movement
-        return weighted_sum / total_weight if total_weight > 0 else delta
+        # Simple average - equal weighting for stability
+        return sum(self.last_movements) / len(self.last_movements) if self.last_movements else delta
     
     def eventFilter(self, obj, event):
         # Handle slide view events
@@ -811,7 +810,7 @@ class IndicesContent(ContentWidget):
                     # Change cursor to indicate grabbing
                     self.setCursor(Qt.CursorShape.ClosedHandCursor)
                     
-                    # Initialize velocity tracking
+                    # Initialize velocity tracking with a clean slate
                     self.velocity_samples = []
                     self.last_movements = []
                 except Exception as e:
@@ -825,40 +824,64 @@ class IndicesContent(ContentWidget):
                         # Get current position
                         current_x = event.pos().x()
                         
-                        # Calculate simple delta (current - last)
+                        # Calculate delta (current - last)
                         delta = current_x - self.last_x
                         
                         # Skip tiny movements to reduce jitter
-                        if abs(delta) < 2:  # Increased from 1 to 2 to reduce micro-movements
+                        if abs(delta) < 1:  # Use minimal threshold
                             return True
                         
-                        # Apply sensitivity multiplier to make scrolling faster
-                        delta = delta * self.scroll_sensitivity
+                        # Current time for velocity and timing calculations
+                        current_time = time.time()
                         
-                        # Apply smoothing to reduce jitter
-                        smoothed_delta = self.smooth_movement(delta)
+                        # Track slow movements to improve release behavior
+                        if abs(delta) < self.slow_movement_threshold:
+                            self.last_slow_movement_time = current_time
+                        
+                        # Apply fixed sensitivity for consistent feel
+                        delta = delta * 2.0  # Simple fixed multiplier
+                        
+                        # Special handling for slow movements - less smoothing to prevent vibration
+                        if abs(delta) < 5:
+                            smoothed_delta = delta  # Use raw delta for small movements
+                        else:
+                            # Apply basic smoothing for stability with larger movements
+                            smoothed_delta = self.smooth_movement(delta)
                         
                         # Calculate time difference
-                        current_time = time.time()
                         delta_time = max(current_time - self.last_time, 0.001)  # Prevent division by zero
                         
-                        # Calculate current velocity
-                        current_velocity = smoothed_delta / delta_time
+                        # Detect very slow movements
+                        is_slow_movement = abs(delta) < 3
                         
-                        # Store velocity sample for averaging (more stable velocity calculation)
-                        self.velocity_samples.append(current_velocity)
-                        # Keep only the last 5 samples for averaging
-                        if len(self.velocity_samples) > 5:
-                            self.velocity_samples.pop(0)
-                        
-                        # Calculate average velocity from samples
-                        self.scroll_velocity = sum(self.velocity_samples) / len(self.velocity_samples)
+                        # Calculate velocity with special handling for slow movements
+                        if is_slow_movement:
+                            # Use lower velocity for slow movements to prevent unwanted inertia
+                            current_velocity = smoothed_delta / (delta_time * 2)  # Half the velocity for slow movements
+                        else:
+                            # Normal velocity calculation for regular movements
+                            current_velocity = smoothed_delta / delta_time
                         
                         # Apply reasonable velocity cap
-                        max_velocity = 5000  # Increased from 3000 to 5000 for faster scrolling
-                        self.scroll_velocity = max(min(self.scroll_velocity, max_velocity), -max_velocity)
+                        max_velocity = 4000  # Cap velocity to reasonable limits
+                        current_velocity = max(min(current_velocity, max_velocity), -max_velocity)
                         
-                        # Calculate new position with direct 1:1 mapping
+                        # Store velocity sample with special handling for slow movements
+                        if is_slow_movement:
+                            # For slow movements, add near-zero velocity to encourage stopping
+                            self.velocity_samples.append(current_velocity * 0.5)  # Further reduce velocity impact
+                        else:
+                            # Normal velocity tracking for regular movements
+                            self.velocity_samples.append(current_velocity)
+                        
+                        # Limit sample size
+                        if len(self.velocity_samples) > 5:  # Keep last 5 samples
+                            self.velocity_samples.pop(0)
+                        
+                        # Simple average of recent velocities
+                        self.scroll_velocity = sum(self.velocity_samples) / len(self.velocity_samples)
+                        
+                        # Calculate new position with direct mapping
                         current_pos = self.scroll_container.pos().x()
                         new_x = current_pos + smoothed_delta
                         
@@ -867,16 +890,15 @@ class IndicesContent(ContentWidget):
                         if not is_within_bounds:
                             if new_x < min_x:
                                 # Apply resistance at the right edge
-                                resistance = (min_x - new_x) * 0.3
+                                resistance = (min_x - new_x) * 0.3  # Standard edge resistance
                                 new_x = min_x + resistance
                             else:
                                 # Apply resistance at the left edge
-                                resistance = new_x * 0.3
+                                resistance = new_x * 0.3  # Standard edge resistance
                                 new_x = resistance
                         
-                        # Apply movement (with integer rounding to avoid subpixel rendering issues)
-                        # Use math.floor instead of int() for more consistent rounding
-                        rounded_x = math.floor(new_x)
+                        # Apply movement with standard rounding
+                        rounded_x = int(new_x)
                         self.scroll_container.move(rounded_x, self.scroll_container.pos().y())
                         
                         # Store positions for later use
@@ -897,19 +919,45 @@ class IndicesContent(ContentWidget):
             elif event.type() == event.Type.MouseButtonRelease:
                 try:
                     if self.is_scrolling:
-                        # No automatic alignment - we want to keep exactly where the user stopped
-                        
                         # Reset interaction states
                         self.is_scrolling = False
                         self.setCursor(Qt.CursorShape.ArrowCursor)
                         
-                        # CHANGE: Disable inertial scrolling completely to prevent unwanted movement
-                        self.scroll_velocity = 0
+                        # Current time for calculations
+                        current_time = time.time()
+                        
+                        # Check if we had slow movement just before release
+                        time_since_slow_movement = current_time - self.last_slow_movement_time
+                        was_moving_slowly = time_since_slow_movement < 0.2  # 200ms threshold
+                        
+                        # Get average of recent velocities for smoother inertial scrolling
+                        if self.velocity_samples and not was_moving_slowly:
+                            # Calculate average final velocity - more weight to the most recent samples
+                            # to better represent the final motion
+                            if len(self.velocity_samples) > 2:
+                                # More recent samples get higher weight
+                                weighted_sum = self.velocity_samples[-1] * 0.5 + self.velocity_samples[-2] * 0.3
+                                if len(self.velocity_samples) > 2:
+                                    for i in range(len(self.velocity_samples) - 2):
+                                        weighted_sum += self.velocity_samples[i] * 0.2 / (len(self.velocity_samples) - 2)
+                                final_velocity = weighted_sum
+                            else:
+                                # Simple average for few samples
+                                final_velocity = sum(self.velocity_samples) / len(self.velocity_samples)
+                            
+                            # Apply velocity threshold - completely ignore low velocities
+                            if abs(final_velocity) > 500:  # Strict threshold
+                                self.scroll_velocity = final_velocity
+                                self.start_inertial_scroll()
+                            else:
+                                # Below threshold = full stop
+                                self.scroll_velocity = 0
+                        else:
+                            # If we were moving slowly, don't apply any inertial scrolling
+                            self.scroll_velocity = 0
                         
                         # Clean up
                         self.scroll_start_x = None
-                        self.velocity_samples = []
-                        self.last_movements = []
                 except Exception as e:
                     print(f"Error in mouse release event: {e}")
                     self.reset_scroll_state()
@@ -925,30 +973,19 @@ class IndicesContent(ContentWidget):
     def update_inertial_scroll(self):
         try:
             # Stop when velocity gets too small
-            if abs(self.scroll_velocity) < 10 or not self.is_animating:  # Reduced threshold from 20 to 10
+            if abs(self.scroll_velocity) < 30 or not self.is_animating:  # Increased threshold for faster stopping
                 self.scroll_timer.stop()
                 self.is_animating = False
                 return
             
-            # Higher friction to stop more quickly
-            deceleration_factor = 0.90  # Increased from 0.92 for even faster deceleration
-            original_sign = 1 if self.scroll_velocity > 0 else -1
-            
-            # Apply friction while preserving direction
-            self.scroll_velocity *= deceleration_factor
-            
-            # Ensure we don't change direction due to floating point errors
-            if (self.scroll_velocity > 0 and original_sign < 0) or (self.scroll_velocity < 0 and original_sign > 0):
-                self.scroll_velocity = 0
-                self.scroll_timer.stop()
-                self.is_animating = False
-                return
+            # Apply stronger friction for faster deceleration
+            self.scroll_velocity *= 0.92  # Increased friction (lower value) for quicker stopping
             
             # Calculate movement based on velocity
             delta = self.scroll_velocity * (self.scroll_timer.interval() / 1000.0)
             
             # If delta is too small, stop scrolling to prevent micro-movements
-            if abs(delta) < 0.5:  # Increased from 0.1
+            if abs(delta) < 1.0:  # Increased threshold to stop sooner
                 self.scroll_timer.stop()
                 self.is_animating = False
                 return
@@ -961,17 +998,17 @@ class IndicesContent(ContentWidget):
             is_within_bounds, min_x = self.check_scroll_bounds(new_x)
             if not is_within_bounds:
                 if new_x < min_x:
-                    new_x = min_x
+                    new_x = min_x  # Stop at right boundary
                 else:
-                    new_x = 0
+                    new_x = 0  # Stop at left boundary
                 
                 # Stop scrolling when hitting a boundary
                 self.scroll_velocity = 0
                 self.scroll_timer.stop()
                 self.is_animating = False
             
-            # Apply movement with consistent rounding to avoid jitter
-            rounded_x = math.floor(new_x)
+            # Apply movement with standard rounding for consistency
+            rounded_x = int(new_x)
             self.scroll_container.move(rounded_x, self.scroll_container.pos().y())
             
             # Store the positions
@@ -1039,7 +1076,7 @@ class IndicesContent(ContentWidget):
                 current_anim.setEasingCurve(QEasingCurve.Type.OutExpo)
                 
                 new_anim = QPropertyAnimation(new_widget, b"pos")
-                new_anim.setDuration(800)  # Match dashboard.py
+                new_anim.setDuration(300)  # Match dashboard.py
                 new_anim.setStartValue(start_pos)
                 new_anim.setEndValue(zero_pos)
                 new_anim.setEasingCurve(QEasingCurve.Type.OutExpo)
@@ -1101,30 +1138,36 @@ class GlassmorphicUI(QWidget):
         
         self.main_layout.addStretch(5)
         
-        self.center_container = QWidget()
-        center_layout = QVBoxLayout(self.center_container)
-        center_layout.setContentsMargins(0, 15, 0, 0)
-        center_layout.setSpacing(0)
+        # Create a header container with absolute positioning for title and button
+        header_container = QWidget()
+        header_container.setFixedHeight(70)  # Increased height for the header
         
-        title_layout = QHBoxLayout()
-        title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Use absolute layout to position elements precisely
+        header_container.setLayout(QHBoxLayout())
+        header_container.layout().setContentsMargins(20, 0, 20, 0)
         
-        self.title_label = QLabel("NSE Indices")
-        self.title_label.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        self.title_label.setStyleSheet("color: white;")
+        # Create and style the title with absolute positioning
+        self.title_label = QLabel("NSE Indices", header_container)
+        self.title_label.setFont(QFont("Segoe UI", 30, QFont.Weight.Bold))  # Increased size further
+        self.title_label.setStyleSheet("""
+            color: white;
+            background-color: transparent;
+            padding: 5px 15px;
+        """)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_layout.addWidget(self.title_label)
+        self.title_label.raise_()  # Bring to front to ensure proper z-index
         
-        # Add toggle button for switching between slide and scroll modes
-        self.toggle_mode_button = QPushButton("Slide Mode")
-        self.toggle_mode_button.setFont(QFont("Segoe UI", 12))
+        # Create and style the toggle button
+        self.toggle_mode_button = QPushButton("Slide Mode", header_container)
+        self.toggle_mode_button.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         self.toggle_mode_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.toggle_mode_button.setFixedSize(220, 60)  # Large button size
         self.toggle_mode_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(60, 70, 100, 0.7);
                 color: white;
-                border-radius: 10px;
-                padding: 5px 15px;
+                border-radius: 15px;
+                padding: 8px 12px;
                 border: 1px solid rgba(255, 255, 255, 0.3);
             }
             QPushButton:hover {
@@ -1135,9 +1178,43 @@ class GlassmorphicUI(QWidget):
             }
         """)
         self.toggle_mode_button.clicked.connect(self.toggle_view_mode)
-        title_layout.addWidget(self.toggle_mode_button)
         
-        center_layout.addLayout(title_layout)
+        # Position the elements using absolute positioning
+        def repositionElements():
+            # Get container width
+            container_width = header_container.width()
+            
+            # Make sure the title has enough space and is perfectly centered
+            title_width = self.title_label.sizeHint().width() + 30  # Add extra padding for safety
+            title_height = self.title_label.sizeHint().height() + 10  # Add vertical padding
+            
+            # Center the title exactly in the available space
+            self.title_label.setGeometry(
+                (container_width - title_width) // 2,
+                (header_container.height() - title_height) // 2,
+                title_width,
+                title_height
+            )
+            
+            # Position button on the right side with some margin
+            button_right_margin = container_width * 0.15  # 15% from right edge
+            self.toggle_mode_button.setGeometry(
+                int(container_width - self.toggle_mode_button.width() - button_right_margin),
+                (header_container.height() - self.toggle_mode_button.height()) // 2,  # Center vertically
+                self.toggle_mode_button.width(),
+                self.toggle_mode_button.height()
+            )
+        
+        # Connect resize event to reposition elements
+        header_container.resizeEvent = lambda event: repositionElements()
+        
+        self.center_container = QWidget()
+        center_layout = QVBoxLayout(self.center_container)
+        center_layout.setContentsMargins(0, 15, 0, 0)
+        center_layout.setSpacing(0)
+        
+        # Add the header container at the top
+        center_layout.addWidget(header_container)
         
         self.indices_content = IndicesContent()
         center_layout.addWidget(self.indices_content)
@@ -1253,10 +1330,6 @@ class GlassmorphicUI(QWidget):
         if hasattr(self, 'background') and self.background and not self.background.isNull():
             painter.drawPixmap(self.rect(), self.background)
         else:
-            painter.fillRect(self.rect(), QColor(20, 30, 50))
-    
-    def keyPressEvent(self, event):
-         
             painter.fillRect(self.rect(), QColor(20, 30, 50))
     
     def keyPressEvent(self, event):
