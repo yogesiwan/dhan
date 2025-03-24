@@ -992,24 +992,20 @@ class GlassmorphicUI(QWidget):
         center_layout.setContentsMargins(0, 0, 0, 0)
         center_layout.setSpacing(15)
         
-        title_layout = QHBoxLayout()
+        # Create a grid layout for better positioning
+        title_layout = QGridLayout()
+        title_layout.setColumnStretch(0, 1)  # Left margin stretches
+        title_layout.setColumnStretch(1, 3)  # Center column gets more stretch
+        title_layout.setColumnStretch(2, 1)  # Right margin stretches
         
-        # Create a container for the title in the center
-        title_container = QWidget()
-        title_container_layout = QHBoxLayout(title_container)
-        title_container_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Add title to its container
+        # Create and position the centered title
         self.title_label = QLabel("NSE Indices")
         self.title_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         self.title_label.setStyleSheet("color: white;")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_container_layout.addWidget(self.title_label)
         
-        # Add button container on the right
-        button_container = QWidget()
-        button_layout = QHBoxLayout(button_container)
-        button_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        # Add title label to the center column
+        title_layout.addWidget(self.title_label, 0, 1, Qt.AlignmentFlag.AlignCenter)
         
         # Add toggle button for switching between slide and scroll modes
         self.toggle_mode_button = QPushButton("Slide Mode")
@@ -1031,11 +1027,9 @@ class GlassmorphicUI(QWidget):
             }
         """)
         self.toggle_mode_button.clicked.connect(self.toggle_view_mode)
-        button_layout.addWidget(self.toggle_mode_button)
         
-        # Add both containers to the title layout
-        title_layout.addWidget(title_container, 4)  # Title takes 4/5 of the space
-        title_layout.addWidget(button_container, 1)  # Button takes 1/5 of the space
+        # Add button to the right column
+        title_layout.addWidget(self.toggle_mode_button, 0, 2, Qt.AlignmentFlag.AlignRight)
         
         center_layout.addLayout(title_layout)
         
