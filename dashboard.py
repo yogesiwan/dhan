@@ -150,12 +150,13 @@ class GlassmorphicCard(QFrame):
         
         self.front_widget = QWidget()
         self.setup_front_side()
+        
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 20, 0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.front_widget)
         
         # Set initial fixed size
-        self.setFixedSize(470, 290)  # Increased width from 550 to 633 (15% more)
+        self.setFixedSize(590, 430)  # Increased width from 550 to 633 (15% more)
     
     def update_data(self, value, change):
         self.value = value
@@ -176,44 +177,41 @@ class GlassmorphicCard(QFrame):
     
     def setup_front_side(self):
         layout = QVBoxLayout(self.front_widget)
-        layout.setContentsMargins(20, 20, 20,10)
-        layout.setSpacing(0)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
         
         title_layout = QHBoxLayout()
         title_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         logo_label = QLabel()
-        logo_path = f"logos/unique_{hash(self.title) % 83 + 1}.png"
-        fallback_path = "logos/unique_1.png"
+        logo_path = resource_path(f"logos/unique_{hash(self.title) % 83 + 1}.png")
+        fallback_logo_path = resource_path("logos/unique_1.png")
         
-        # Try to load the calculated logo path, fallback to unique_1.png if it doesn't exist
+        logo_pixmap = None
         if os.path.exists(logo_path):
             logo_pixmap = QPixmap(logo_path)
         else:
-            # Use fallback logo
-            logo_path = fallback_path
-            logo_pixmap = QPixmap(logo_path)
-            
-        if not logo_pixmap.isNull():
-            logo_label.setPixmap(logo_pixmap.scaled(60, 60, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            logo_pixmap = QPixmap(fallback_logo_path)
+
+        logo_label.setPixmap(logo_pixmap.scaled(70, 70, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         title_layout.addWidget(logo_label)
         
-        title_layout.addSpacing(5)
+        title_layout.addSpacing(15)
         
         # Create a container for the title with fixed height
         title_container = QWidget()
-        title_container.setFixedHeight(100)  # Increased from 100 to 120
+        title_container.setFixedHeight(120)  # Increased from 100 to 120
         title_container_layout = QVBoxLayout(title_container)
-        title_container_layout.setContentsMargins(0, 8, 0, 30)  # Increased padding
-        title_container_layout.setSpacing(3)  # Increased spacing between lines
+        title_container_layout.setContentsMargins(0, 25, 0, 0)  # Increased padding
+        title_container_layout.setSpacing(0)  # Increased spacing between lines
         
         # Format title with different font sizes for each line
         title_words = self.title.split()
-        first_line = " ".join(title_words[:3])
-        remaining_words = title_words[3:]
+        first_line = " ".join(title_words[:2])
+        remaining_words = title_words[2:]
         
         # Base font size
-        base_font_size = 22
+        base_font_size = 36
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
             base_font_size = int(base_font_size * 1.2)
         
@@ -229,7 +227,7 @@ class GlassmorphicCard(QFrame):
         if len(remaining_words) > 0:
             second_line = " ".join(remaining_words[:2])
             second_line_label = QLabel(second_line)
-            second_font_size = int(base_font_size * 0.85)
+            second_font_size = int(base_font_size * 0.8)
             second_line_label.setFont(QFont("Segoe UI", second_font_size, QFont.Weight.Bold))
             second_line_label.setStyleSheet("color: white;")
             second_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -257,12 +255,11 @@ class GlassmorphicCard(QFrame):
         # Create a fixed-size container for the value
         value_container = QWidget()
         value_container.setFixedHeight(70)
-        
         value_container_layout = QVBoxLayout(value_container)
         value_container_layout.setContentsMargins(0, 0, 0, 0)
         
         value_label = QLabel(self.value)
-        value_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        value_label.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
         value_label.setStyleSheet("color: white;")
         value_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         value_container_layout.addWidget(value_label)
@@ -279,13 +276,13 @@ class GlassmorphicCard(QFrame):
         change_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         change_label = QLabel(f"{self.change}")
-        change_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        change_label.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
         change_label.setStyleSheet(f"color: {self.change_color}; font-weight: bold;")
         change_label.setMinimumWidth(160)
         
         arrow_label = QLabel()
         arrow_pixmap = QPixmap(resource_path("up_arrow.png" if self.change_value >= 0 else "down_arrow.png"))
-        arrow_label.setPixmap(arrow_pixmap.scaled(30, 30, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        arrow_label.setPixmap(arrow_pixmap.scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         
         change_layout.addWidget(change_label)
         change_layout.addWidget(arrow_label)
@@ -300,9 +297,9 @@ class ContentWidget(QWidget):
         
         container = QWidget()
         container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        container.setFixedHeight(680)
+        
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 100, 50)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         
         main_layout.addWidget(container, 0, Qt.AlignmentFlag.AlignCenter)
         
@@ -311,8 +308,9 @@ class ContentWidget(QWidget):
         
         # Set container width to 95% of screen width
         screen_width = QApplication.primaryScreen().size().width()
-        container.setFixedWidth(int(screen_width * 1))  # Increased from 0.90 to 0.95
+        container.setFixedWidth(int(screen_width * 0.98))  # Increased from 0.90 to 0.95
         
+        self.layout.setContentsMargins(10, 10, 10, 10)
         
         self.layout.setColumnMinimumWidth(0, 0)
         self.layout.setColumnMinimumWidth(1, 0)
@@ -323,7 +321,7 @@ class ContentWidget(QWidget):
 
 class IndicesContent(ContentWidget):
     def __init__(self, parent=None):
-        super().__init__("SE Indices", parent)
+        super().__init__("NSE Indic", parent)
         
         self.screens_stack = QStackedWidget()
         self.layout.addWidget(self.screens_stack, 0, 0, 1, 3)
@@ -376,26 +374,26 @@ class IndicesContent(ContentWidget):
                 {"title": "Nifty Media", "value": "₹ 2,340.85", "change": "-0.78%"},
                 {"title": "Nifty Realty", "value": "₹ 890.45", "change": "0.92%"},
                 {"title": "Nifty PSU Bank", "value": "₹ 4,570.30", "change": "1.23%"},
-                {"title": "Nifty MNC", "value": "₹ 23,780.55", "change": "0.67%"},
-                {"title": "Nifty Energy", "value": "₹ 34,560.90", "change": "-0.45%"}
+                {"title": "Nifty 50", "value": "₹ 23,780.55", "change": "0.67%"},
+                {"title": "Nifty IT", "value": "₹ 34,560.90", "change": "-0.45%"}
             ],
             # Screen 3
             [
-                {"title": "Nifty FMCG", "value": "₹ 19,870.35", "change": "0.56%"},
-                {"title": "Nifty Auto", "value": "₹ 31,240.80", "change": "-0.23%"},
+                {"title": "Nifty Media", "value": "₹ 19,870.35", "change": "0.56%"},
+                {"title": "Nifty Pharma", "value": "₹ 31,240.80", "change": "-0.23%"},
                 {"title": "Nifty Oil & Gas", "value": "₹ 12,450.65", "change": "0.89%"},
                 {"title": "Nifty Healthcare", "value": "₹ 9,780.40", "change": "0.34%"},
                 {"title": "Nifty PSE", "value": "₹ 5,670.25", "change": "-0.67%"},
-                {"title": "Nifty Metal", "value": "₹ 6,890.15", "change": "0.78%"}
+                {"title": "Nifty Auto", "value": "₹ 6,890.15", "change": "0.78%"}
             ],
             # Screen 4
             [
                 {"title": "Nifty MNC", "value": "₹ 21,340.75", "change": "0.45%"},
-                {"title": "Nifty Services", "value": "₹ 27,890.60", "change": "-0.34%"},
-                {"title": "Nifty India Digital", "value": "₹ 8,970.30", "change": "1.56%"},
-                {"title": "Nifty Realty", "value": "₹ 11,230.85", "change": "0.23%"},
+                {"title": "Nifty Services Sector", "value": "₹ 27,890.60", "change": "-0.34%"},
+                {"title": "Nifty IT", "value": "₹ 8,970.30", "change": "1.56%"},
+                {"title": "Nifty Metal", "value": "₹ 11,230.85", "change": "0.23%"},
                 {"title": "Nifty CPSE", "value": "₹ 3,450.40", "change": "-0.89%"},
-                {"title": "Nifty India Auto", "value": "₹ 4,560.95", "change": "0.67%"}
+                {"title": "Nifty Bank", "value": "₹ 4,560.95", "change": "0.67%"}
             ],
             # Screen 5
             [
@@ -403,34 +401,34 @@ class IndicesContent(ContentWidget):
                 {"title": "Nifty Midcap 100", "value": "₹ 15,670.30", "change": "-0.45%"},
                 {"title": "Nifty Smallcap 50", "value": "₹ 5,890.65", "change": "1.23%"},
                 {"title": "Nifty Smallcap 100", "value": "₹ 7,450.20", "change": "0.78%"},
-                {"title": "Nifty Pharma", "value": "₹ 9,230.75", "change": "-0.56%"},
-                {"title": "Nifty Media", "value": "₹ 6,780.90", "change": "1.12%"}
+                {"title": "Nifty Midcap Liquid 15", "value": "₹ 9,230.75", "change": "-0.56%"},
+                {"title": "Nifty India Defence", "value": "₹ 6,780.90", "change": "1.12%"}
             ],
             # Screen 6
             [
                 {"title": "Nifty Alpha 50", "value": "₹ 18,920.35", "change": "0.34%"},
-                {"title": "Nifty 50 Value 20", "value": "₹ 13,450.80", "change": "-0.67%"},
-                {"title": "Nifty 50 Equal Weight", "value": "₹ 16,780.65", "change": "0.89%"},
-                {"title": "Nifty 100 Equal Weight", "value": "₹ 14,560.40", "change": "0.45%"},
-                {"title": "Nifty 100 Quality 30", "value": "₹ 11,890.25", "change": "-0.23%"},
-                {"title": "Nifty Alpha 30", "value": "₹ 8,670.60", "change": "1.34%"}
+                {"title": "Nifty50 Value 20", "value": "₹ 13,450.80", "change": "-0.67%"},
+                {"title": "Nifty IT", "value": "₹ 16,780.65", "change": "0.89%"},
+                {"title": "Nifty Metal", "value": "₹ 14,560.40", "change": "0.45%"},
+                {"title": "Nifty100 Low Volatility 30", "value": "₹ 11,890.25", "change": "-0.23%"},
+                {"title": "Nifty Alpha Low-Volatility 30", "value": "₹ 8,670.60", "change": "1.34%"}
             ],
             # Screen 7
             [
                 {"title": "Nifty 200 Quality 30", "value": "₹ 17,890.30", "change": "0.67%"},
                 {"title": "Nifty 100 Quality 30", "value": "₹ 15,450.85", "change": "-0.45%"},
                 {"title": "Nifty 50 Dividend Points", "value": "₹ 12,670.40", "change": "0.91%"},
-                {"title": "Nifty Realty", "value": "₹ 9,890.95", "change": "0.23%"},
-                {"title": "Nifty Metal", "value": "₹ 7,450.20", "change": "-0.78%"},
+                {"title": "Nifty MNC", "value": "₹ 9,890.95", "change": "0.23%"},
+                {"title": "Nifty IT", "value": "₹ 7,450.20", "change": "-0.78%"},
                 {"title": "Nifty 100 ESG", "value": "₹ 5,670.75", "change": "1.12%"}
             ],
             # Screen 8
             [
-                {"title": "Nifty Alpha 50", "value": "₹ 14,560.30", "change": "0.45%"},
-                {"title": "Nifty Oil & Gas", "value": "₹ 11,890.85", "change": "-0.34%"},
-                {"title": "Nifty Commodities", "value": "₹ 8,970.40", "change": "1.23%"},
-                {"title": "Nifty CPSE", "value": "₹ 6,780.95", "change": "0.56%"},
-                {"title": "Nifty Midcap 50", "value": "₹ 4,560.20", "change": "-0.89%"},
+                {"title": "Nifty 100 Enhanced ESG", "value": "₹ 14,560.30", "change": "0.45%"},
+                {"title": "Nifty 200 Momentum 30", "value": "₹ 11,890.85", "change": "-0.34%"},
+                {"title": "Nifty IT", "value": "₹ 8,970.40", "change": "1.23%"},
+                {"title": "Nifty Media", "value": "₹ 6,780.95", "change": "0.56%"},
+                {"title": "Nifty Microcap 250", "value": "₹ 4,560.20", "change": "-0.89%"},
                 {"title": "Nifty Total Market", "value": "₹ 3,450.75", "change": "0.67%"}
             ],
             # Screen 9
@@ -438,7 +436,7 @@ class IndicesContent(ContentWidget):
                 {"title": "Nifty 500 Value 50", "value": "₹ 13,670.30", "change": "0.91%"},
                 {"title": "Nifty Next 50", "value": "₹ 10,890.85", "change": "-0.45%"},
                 {"title": "Nifty 100 Liquid 15", "value": "₹ 8,450.40", "change": "1.23%"},
-                {"title": "Nifty IT", "value": "₹ 6,780.95", "change": "0.34%"},
+                {"title": "Nifty Metal", "value": "₹ 6,780.95", "change": "0.34%"},
                 {"title": "Nifty 200 Alpha 30", "value": "₹ 4,560.20", "change": "-0.67%"},
                 {"title": "India VIX", "value": "₹ 786.0", "change": "-0.79%"}
             ]
@@ -455,7 +453,7 @@ class IndicesContent(ContentWidget):
             
             # Set fixed spacing for the grid
             screen_layout.setHorizontalSpacing(50)  # Increased spacing
-            screen_layout.setVerticalSpacing(40)  # Increased spacing
+            screen_layout.setVerticalSpacing(50)  # Increased spacing
             
             screen_cards = []
             
@@ -575,13 +573,13 @@ class IndicesContent(ContentWidget):
                 
                 # Position animations with improved settings
                 current_anim = QPropertyAnimation(current_widget, b"pos")
-                current_anim.setDuration(200)  # Increased from 400ms to 800ms for much slower animation
+                current_anim.setDuration(300)  # Increased from 400ms to 800ms for much slower animation
                 current_anim.setStartValue(zero_pos)
                 current_anim.setEndValue(end_pos)
                 current_anim.setEasingCurve(QEasingCurve.Type.OutExpo)
                 
                 new_anim = QPropertyAnimation(new_widget, b"pos")
-                new_anim.setDuration(800)  # Increased from 400ms to 800ms for much slower animation
+                new_anim.setDuration(300)  # Increased from 400ms to 800ms for much slower animation
                 new_anim.setStartValue(start_pos)
                 new_anim.setEndValue(zero_pos)
                 new_anim.setEasingCurve(QEasingCurve.Type.OutExpo)
@@ -639,14 +637,14 @@ class GlassmorphicUI(QWidget):
             self.background.fill(QColor(20, 30, 50))
         
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setContentsMargins(20, 10, 20, 20)
         
-        self.main_layout.addStretch(5)
+        self.main_layout.addStretch(7)
         
         self.center_container = QWidget()
         center_layout = QVBoxLayout(self.center_container)
-        center_layout.setContentsMargins(0, 15, 0, 0)
-        center_layout.setSpacing(0)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.setSpacing(15)
         
         title_layout = QHBoxLayout()
         title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
