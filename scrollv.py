@@ -450,18 +450,25 @@ class IndicesContent(ContentWidget):
         self.scroll_start_x = None
         self.scroll_cards = []
         
-        # Simple scroll sensitivity - fixed multiplier
-        self.scroll_sensitivity = 2.5  # Fixed sensitivity for predictable response
+        # Scroll sensitivity for touch - optimized for touchscreen
+        self.scroll_sensitivity = 1.8  # Slightly reduced for more precise control on touch
         
         # Movement smoothing variables - simplified
         self.last_movements = []
         
         # Tracking for slow movements
         self.last_slow_movement_time = 0
-        self.slow_movement_threshold = 5  # Pixels per event considered "slow"
+        self.slow_movement_threshold = 3  # Pixels per event considered "slow" - reduced for touch
         
         # Initialize velocity tracking
         self.velocity_samples = []
+        self.velocity_sample_max_size = 8  # Increased for better velocity averaging
+        
+        # Momentum scrolling parameters
+        self.use_momentum_scrolling = True
+        self.momentum_friction = 0.95  # Higher value = less friction (0.95 = smooth deceleration)
+        self.momentum_velocity_threshold = 150  # Minimum velocity to trigger momentum scrolling
+        self.momentum_min_velocity = 15  # Minimum velocity before stopping momentum
         
         # Disable any auto-alignment or snap behavior
         self.snap_to_grid = False
@@ -789,7 +796,7 @@ class IndicesContent(ContentWidget):
                     self.old_pos = None
                 return True
         
-        # Handle scroll view events - Updated with dashboard.py logic
+        # Handle scroll view events - Updated with momentum-based scrolling
         elif obj == self.scroll_container and self.current_mode == "scroll":
             if event.type() == event.Type.MouseButtonPress:
                 try:
@@ -831,7 +838,7 @@ class IndicesContent(ContentWidget):
                         delta = current_x - self.last_x
                         
                         # Skip tiny movements to reduce jitter
-                        if abs(delta) < 1:  # Use minimal threshold
+                        if abs(delta) < self.scroll_threshold:  # Use minimal threshold
                             return True
                         
                         # Current time for velocity and timing calculations
@@ -869,20 +876,12 @@ class IndicesContent(ContentWidget):
                         max_velocity = 5000  # Cap velocity to reasonable limits
                         current_velocity = max(min(current_velocity, max_velocity), -max_velocity)
                         
-                        # Store velocity sample with special handling for slow movements
-                        if is_slow_movement:
-                            # For slow movements, add near-zero velocity to encourage stopping
-                            self.velocity_samples.append(current_velocity * 0.5)  # Further reduce velocity impact
-                        else:
-                            # Normal velocity tracking for regular movements
-                            self.velocity_samples.append(current_velocity)
+                        # Store velocity sample
+                        self.velocity_samples.append((current_velocity, current_time))
                         
-                        # Limit sample size
-                        if len(self.velocity_samples) > 5:  # Keep last 5 samples
+                        # Limit sample size but keep more samples for better averaging
+                        if len(self.velocity_samples) > self.velocity_sample_max_size:
                             self.velocity_samples.pop(0)
-                        
-                        # Simple average of recent velocities
-                        self.scroll_velocity = sum(self.velocity_samples) / len(self.velocity_samples)
                         
                         # Calculate new position with direct mapping
                         current_pos = self.scroll_container.pos().x()
@@ -926,39 +925,43 @@ class IndicesContent(ContentWidget):
                         self.is_scrolling = False
                         self.setCursor(Qt.CursorShape.ArrowCursor)
                         
-                        # Current time for calculations
-                        current_time = time.time()
-                        
-                        # Check if we had slow movement just before release
-                        time_since_slow_movement = current_time - self.last_slow_movement_time
-                        was_moving_slowly = time_since_slow_movement < 0.2  # 200ms threshold
-                        
-                        # Get average of recent velocities for smoother inertial scrolling
-                        if self.velocity_samples and not was_moving_slowly:
-                            # Calculate average final velocity - more weight to the most recent samples
-                            # to better represent the final motion
-                            if len(self.velocity_samples) > 2:
-                                # More recent samples get higher weight
-                                weighted_sum = self.velocity_samples[-1] * 0.5 + self.velocity_samples[-2] * 0.3
-                                if len(self.velocity_samples) > 2:
-                                    for i in range(len(self.velocity_samples) - 2):
-                                        weighted_sum += self.velocity_samples[i] * 0.2 / (len(self.velocity_samples) - 2)
-                                final_velocity = weighted_sum
-                            else:
-                                # Simple average for few samples
-                                final_velocity = sum(self.velocity_samples) / len(self.velocity_samples)
+                        # Calculate final velocity for momentum scrolling
+                        if self.use_momentum_scrolling and len(self.velocity_samples) > 0:
+                            # Get recent velocity samples - weigh more recent samples more heavily
+                            now = time.time()
+                            # Filter for samples from last 100ms for more responsive feel
+                            recent_samples = [(v, t) for v, t in self.velocity_samples if now - t < 0.1]
                             
-                            # Apply velocity threshold - only apply inertial scrolling for significant movements
-                            if abs(final_velocity) > 200:  # Threshold for inertial scrolling activation
-                                # Cap max inertial scrolling speed
-                                max_inertial_velocity = 2000
-                                self.scroll_velocity = max(min(final_velocity, max_inertial_velocity), -max_inertial_velocity)
-                                self.start_inertial_scroll()
+                            if recent_samples:
+                                # Calculate weighted average with more recent samples weighted higher
+                                total_weight = 0
+                                weighted_sum = 0
+                                
+                                for i, (velocity, timestamp) in enumerate(recent_samples):
+                                    # More recent samples get higher weight
+                                    weight = (i + 1) / len(recent_samples)
+                                    weighted_sum += velocity * weight
+                                    total_weight += weight
+                                
+                                final_velocity = weighted_sum / total_weight if total_weight > 0 else 0
+                                
+                                # Apply velocity threshold for momentum scrolling activation
+                                if abs(final_velocity) > self.momentum_velocity_threshold:
+                                    # Cap the final velocity for consistent feel
+                                    max_init_velocity = 3000  # Maximum initial velocity
+                                    if final_velocity > 0:
+                                        final_velocity = min(final_velocity, max_init_velocity)
+                                    else:
+                                        final_velocity = max(final_velocity, -max_init_velocity)
+                                    
+                                    # Set the velocity and start momentum scrolling
+                                    self.scroll_velocity = final_velocity
+                                    self.start_inertial_scroll()
+                                else:
+                                    self.scroll_velocity = 0
                             else:
-                                # Below threshold = stop
                                 self.scroll_velocity = 0
                         else:
-                            # If we were moving slowly, don't apply any inertial scrolling
                             self.scroll_velocity = 0
                         
                         # Clean up
@@ -978,19 +981,19 @@ class IndicesContent(ContentWidget):
     def update_inertial_scroll(self):
         try:
             # Stop when velocity gets too small
-            if abs(self.scroll_velocity) < 20 or not self.is_animating:  # Increased from 10 for slightly longer scrolling
+            if abs(self.scroll_velocity) < self.momentum_min_velocity or not self.is_animating:
                 self.scroll_timer.stop()
                 self.is_animating = False
                 return
             
-            # Apply friction for smoother deceleration
-            self.scroll_velocity *= 0.95  # Lowered from 0.92 for smoother deceleration
+            # Apply momentum friction (higher value = slower deceleration)
+            self.scroll_velocity *= self.momentum_friction
             
             # Calculate movement based on velocity
             delta = self.scroll_velocity * (self.scroll_timer.interval() / 1000.0)
             
             # If delta is too small, stop scrolling to prevent micro-movements
-            if abs(delta) < 0.5:  # Reduced threshold for smoother stopping
+            if abs(delta) < 0.5:
                 self.scroll_timer.stop()
                 self.is_animating = False
                 return
