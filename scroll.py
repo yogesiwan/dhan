@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QGridLayout, 
                             QGraphicsDropShadowEffect, QHBoxLayout, QVBoxLayout, 
-                            QFrame, QStackedWidget, QSizePolicy, QWIDGETSIZE_MAX)
+                            QFrame, QStackedWidget, QSizePolicy, QWIDGETSIZE_MAX, QPushButton)
 from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap, QPen, QTransform, QKeyEvent, QPainterPath
 from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup, QRectF, pyqtProperty, QTimer, pyqtSignal, QObject
 
@@ -150,12 +150,13 @@ class GlassmorphicCard(QFrame):
         
         self.front_widget = QWidget()
         self.setup_front_side()
+        
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 20, 0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.front_widget)
         
         # Set initial fixed size
-        self.setFixedSize(470, 290)  # Increased width from 550 to 633 (15% more)
+        self.setFixedSize(590, 430)  # Increased width from 550 to 633 (15% more)
     
     def update_data(self, value, change):
         self.value = value
@@ -176,35 +177,41 @@ class GlassmorphicCard(QFrame):
     
     def setup_front_side(self):
         layout = QVBoxLayout(self.front_widget)
-        layout.setContentsMargins(20, 20, 20,10)
-        layout.setSpacing(0)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
         
         title_layout = QHBoxLayout()
         title_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         logo_label = QLabel()
-        logo_path = f"logos/unique_{hash(self.title) % 83 + 1}.png"
+        logo_path = resource_path(f"logos/unique_{hash(self.title) % 83 + 1}.png")
+        fallback_logo_path = resource_path("logos/unique_1.png")
+        
+        logo_pixmap = None
         if os.path.exists(logo_path):
             logo_pixmap = QPixmap(logo_path)
-            logo_label.setPixmap(logo_pixmap.scaled(60, 60, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        else:
+            logo_pixmap = QPixmap(fallback_logo_path)
+
+        logo_label.setPixmap(logo_pixmap.scaled(70, 70, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         title_layout.addWidget(logo_label)
         
-        title_layout.addSpacing(5)
+        title_layout.addSpacing(15)
         
         # Create a container for the title with fixed height
         title_container = QWidget()
-        title_container.setFixedHeight(100)  # Increased from 100 to 120
+        title_container.setFixedHeight(120)  # Increased from 100 to 120
         title_container_layout = QVBoxLayout(title_container)
-        title_container_layout.setContentsMargins(0, 8, 0, 30)  # Increased padding
-        title_container_layout.setSpacing(3)  # Increased spacing between lines
+        title_container_layout.setContentsMargins(0, 25, 0, 0)  # Increased padding
+        title_container_layout.setSpacing(0)  # Increased spacing between lines
         
         # Format title with different font sizes for each line
         title_words = self.title.split()
-        first_line = " ".join(title_words[:3])
-        remaining_words = title_words[3:]
+        first_line = " ".join(title_words[:2])
+        remaining_words = title_words[2:]
         
         # Base font size
-        base_font_size = 22
+        base_font_size = 36
         if any(stock in self.title for stock in ["Reliance", "TCS", "HDFC Bank", "Infosys", "Bharti Airtel", "ITC"]):
             base_font_size = int(base_font_size * 1.2)
         
@@ -220,7 +227,7 @@ class GlassmorphicCard(QFrame):
         if len(remaining_words) > 0:
             second_line = " ".join(remaining_words[:2])
             second_line_label = QLabel(second_line)
-            second_font_size = int(base_font_size * 0.85)
+            second_font_size = int(base_font_size * 0.8)
             second_line_label.setFont(QFont("Segoe UI", second_font_size, QFont.Weight.Bold))
             second_line_label.setStyleSheet("color: white;")
             second_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -248,12 +255,11 @@ class GlassmorphicCard(QFrame):
         # Create a fixed-size container for the value
         value_container = QWidget()
         value_container.setFixedHeight(70)
-        
         value_container_layout = QVBoxLayout(value_container)
         value_container_layout.setContentsMargins(0, 0, 0, 0)
         
         value_label = QLabel(self.value)
-        value_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        value_label.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
         value_label.setStyleSheet("color: white;")
         value_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         value_container_layout.addWidget(value_label)
@@ -266,17 +272,17 @@ class GlassmorphicCard(QFrame):
         change_container = QWidget()
         change_container.setFixedHeight(60)
         change_layout = QHBoxLayout(change_container)
-        change_layout.setContentsMargins(0, 15, 0, 0)
+        change_layout.setContentsMargins(0, 0, 0, 0)
         change_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         change_label = QLabel(f"{self.change}")
-        change_label.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+        change_label.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
         change_label.setStyleSheet(f"color: {self.change_color}; font-weight: bold;")
-        change_label.setMinimumWidth(100)
+        change_label.setMinimumWidth(160)
         
         arrow_label = QLabel()
         arrow_pixmap = QPixmap(resource_path("up_arrow.png" if self.change_value >= 0 else "down_arrow.png"))
-        arrow_label.setPixmap(arrow_pixmap.scaled(27, 27, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        arrow_label.setPixmap(arrow_pixmap.scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         
         change_layout.addWidget(change_label)
         change_layout.addWidget(arrow_label)
@@ -291,9 +297,9 @@ class ContentWidget(QWidget):
         
         container = QWidget()
         container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        container.setFixedHeight(680)
+        
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 50)  # Changed from (0, 0, 100, 50) to center the container
+        main_layout.setContentsMargins(0, 0, 0, 0)
         
         main_layout.addWidget(container, 0, Qt.AlignmentFlag.AlignCenter)
         
@@ -302,7 +308,9 @@ class ContentWidget(QWidget):
         
         # Set container width to 95% of screen width
         screen_width = QApplication.primaryScreen().size().width()
-        container.setFixedWidth(int(screen_width * 0.95))  # Changed from 1 to 0.95 to prevent overflow
+        container.setFixedWidth(int(screen_width * 0.98))  # Increased from 0.90 to 0.95
+        
+        self.layout.setContentsMargins(10, 10, 10, 10)
         
         self.layout.setColumnMinimumWidth(0, 0)
         self.layout.setColumnMinimumWidth(1, 0)
@@ -313,20 +321,12 @@ class ContentWidget(QWidget):
 
 class IndicesContent(ContentWidget):
     def __init__(self, parent=None):
-        super().__init__("SE Indices", parent)
+        super().__init__("NSE Indic", parent)
         
-        # Add scroll state management
-        self.is_scrolling = False
-        self.is_animating = False
-        self.scroll_velocity = 0
-        self.last_x = 0
-        self.last_time = 0
-        self.last_scroll_pos = 0
-        self.scroll_threshold = 2
-        self.last_valid_x = 0
-        self.scroll_start_x = None
+        # Keep track of the current view mode
+        self.current_mode = "slide"
         
-        # NSE Indices data - 54 indices
+        # NSE Indices data - 54 indices (9 screens × 6 cards)
         self.indices_data = [
             # Screen 1
             [
@@ -343,26 +343,26 @@ class IndicesContent(ContentWidget):
                 {"title": "Nifty Media", "value": "₹ 2,340.85", "change": "-0.78%"},
                 {"title": "Nifty Realty", "value": "₹ 890.45", "change": "0.92%"},
                 {"title": "Nifty PSU Bank", "value": "₹ 4,570.30", "change": "1.23%"},
-                {"title": "Nifty Private Bank", "value": "₹ 23,780.55", "change": "0.67%"},
-                {"title": "Nifty Energy", "value": "₹ 34,560.90", "change": "-0.45%"}
+                {"title": "Nifty 50", "value": "₹ 23,780.55", "change": "0.67%"},
+                {"title": "Nifty IT", "value": "₹ 34,560.90", "change": "-0.45%"}
             ],
             # Screen 3
             [
-                {"title": "Nifty Financial Services", "value": "₹ 19,870.35", "change": "0.56%"},
-                {"title": "Nifty Consumer Durables", "value": "₹ 31,240.80", "change": "-0.23%"},
+                {"title": "Nifty Media", "value": "₹ 19,870.35", "change": "0.56%"},
+                {"title": "Nifty Pharma", "value": "₹ 31,240.80", "change": "-0.23%"},
                 {"title": "Nifty Oil & Gas", "value": "₹ 12,450.65", "change": "0.89%"},
                 {"title": "Nifty Healthcare", "value": "₹ 9,780.40", "change": "0.34%"},
                 {"title": "Nifty PSE", "value": "₹ 5,670.25", "change": "-0.67%"},
-                {"title": "Nifty Infrastructure", "value": "₹ 6,890.15", "change": "0.78%"}
+                {"title": "Nifty Auto", "value": "₹ 6,890.15", "change": "0.78%"}
             ],
             # Screen 4
             [
                 {"title": "Nifty MNC", "value": "₹ 21,340.75", "change": "0.45%"},
                 {"title": "Nifty Services Sector", "value": "₹ 27,890.60", "change": "-0.34%"},
-                {"title": "Nifty India Digital", "value": "₹ 8,970.30", "change": "1.56%"},
-                {"title": "Nifty India Consumption", "value": "₹ 11,230.85", "change": "0.23%"},
+                {"title": "Nifty IT", "value": "₹ 8,970.30", "change": "1.56%"},
+                {"title": "Nifty Metal", "value": "₹ 11,230.85", "change": "0.23%"},
                 {"title": "Nifty CPSE", "value": "₹ 3,450.40", "change": "-0.89%"},
-                {"title": "Nifty India Manufacturing", "value": "₹ 4,560.95", "change": "0.67%"}
+                {"title": "Nifty Bank", "value": "₹ 4,560.95", "change": "0.67%"}
             ],
             # Screen 5
             [
@@ -377,53 +377,184 @@ class IndicesContent(ContentWidget):
             [
                 {"title": "Nifty Alpha 50", "value": "₹ 18,920.35", "change": "0.34%"},
                 {"title": "Nifty50 Value 20", "value": "₹ 13,450.80", "change": "-0.67%"},
-                {"title": "Nifty50 Equal Weight", "value": "₹ 16,780.65", "change": "0.89%"},
-                {"title": "Nifty100 Equal Weight", "value": "₹ 14,560.40", "change": "0.45%"},
+                {"title": "Nifty IT", "value": "₹ 16,780.65", "change": "0.89%"},
+                {"title": "Nifty Metal", "value": "₹ 14,560.40", "change": "0.45%"},
                 {"title": "Nifty100 Low Volatility 30", "value": "₹ 11,890.25", "change": "-0.23%"},
                 {"title": "Nifty Alpha Low-Volatility 30", "value": "₹ 8,670.60", "change": "1.34%"}
             ],
             # Screen 7
             [
-                {"title": "Nifty200 Quality 30", "value": "₹ 17,890.30", "change": "0.67%"},
-                {"title": "Nifty100 Quality 30", "value": "₹ 15,450.85", "change": "-0.45%"},
-                {"title": "Nifty50 Dividend Points", "value": "₹ 12,670.40", "change": "0.91%"},
-                {"title": "Nifty Dividend Opportunities 50", "value": "₹ 9,890.95", "change": "0.23%"},
-                {"title": "Nifty Growth Sectors 15", "value": "₹ 7,450.20", "change": "-0.78%"},
-                {"title": "Nifty100 ESG", "value": "₹ 5,670.75", "change": "1.12%"}
+                {"title": "Nifty 200 Quality 30", "value": "₹ 17,890.30", "change": "0.67%"},
+                {"title": "Nifty 100 Quality 30", "value": "₹ 15,450.85", "change": "-0.45%"},
+                {"title": "Nifty 50 Dividend Points", "value": "₹ 12,670.40", "change": "0.91%"},
+                {"title": "Nifty MNC", "value": "₹ 9,890.95", "change": "0.23%"},
+                {"title": "Nifty IT", "value": "₹ 7,450.20", "change": "-0.78%"},
+                {"title": "Nifty 100 ESG", "value": "₹ 5,670.75", "change": "1.12%"}
             ],
             # Screen 8
             [
-                {"title": "Nifty100 Enhanced ESG", "value": "₹ 14,560.30", "change": "0.45%"},
-                {"title": "Nifty200 Momentum 30", "value": "₹ 11,890.85", "change": "-0.34%"},
-                {"title": "Nifty Commodities", "value": "₹ 8,970.40", "change": "1.23%"},
-                {"title": "Nifty India Manufacturing", "value": "₹ 6,780.95", "change": "0.56%"},
+                {"title": "Nifty 100 Enhanced ESG", "value": "₹ 14,560.30", "change": "0.45%"},
+                {"title": "Nifty 200 Momentum 30", "value": "₹ 11,890.85", "change": "-0.34%"},
+                {"title": "Nifty IT", "value": "₹ 8,970.40", "change": "1.23%"},
+                {"title": "Nifty Media", "value": "₹ 6,780.95", "change": "0.56%"},
                 {"title": "Nifty Microcap 250", "value": "₹ 4,560.20", "change": "-0.89%"},
                 {"title": "Nifty Total Market", "value": "₹ 3,450.75", "change": "0.67%"}
             ],
             # Screen 9
             [
-                {"title": "Nifty500 Value 50", "value": "₹ 13,670.30", "change": "0.91%"},
+                {"title": "Nifty 500 Value 50", "value": "₹ 13,670.30", "change": "0.91%"},
                 {"title": "Nifty Next 50", "value": "₹ 10,890.85", "change": "-0.45%"},
-                {"title": "Nifty100 Liquid 15", "value": "₹ 8,450.40", "change": "1.23%"},
-                {"title": "Nifty MidSmallcap 400", "value": "₹ 6,780.95", "change": "0.34%"},
-                {"title": "Nifty200 Alpha 30", "value": "₹ 4,560.20", "change": "-0.67%"},
+                {"title": "Nifty 100 Liquid 15", "value": "₹ 8,450.40", "change": "1.23%"},
+                {"title": "Nifty Metal", "value": "₹ 6,780.95", "change": "0.34%"},
+                {"title": "Nifty 200 Alpha 30", "value": "₹ 4,560.20", "change": "-0.67%"},
                 {"title": "India VIX", "value": "₹ 786.0", "change": "-0.79%"}
             ]
         ]
         
+        # Create stacked widget to hold both view modes
+        self.view_stack = QStackedWidget()
+        self.layout.addWidget(self.view_stack, 0, 0, 1, 3)
+        
+        # Create slide view
+        self.slide_view = QWidget()
+        self.slide_layout = QVBoxLayout(self.slide_view)
+        self.slide_layout.setContentsMargins(0, 0, 0, 0)
+        self.slide_layout.setSpacing(0)
+        
+        # Create scroll view (will be initialized when needed)
+        self.scroll_view = None
+        
+        # Initialize the sliding view (default)
+        self.init_slide_view()
+        
+        # Add slide view to the stack
+        self.view_stack.addWidget(self.slide_view)
+        self.view_stack.setCurrentWidget(self.slide_view)
+        
+        # Create a mapping from index names to card positions
+        self.index_map = {}
+        for screen_idx, screen_data in enumerate(self.indices_data):
+            for card_idx, card_data in enumerate(screen_data):
+                self.index_map[card_data["title"]] = (screen_idx, card_idx)
+                
+        # Initialize scroll mode variables (to be used later)
+        self.scroll_container = None
+        self.is_scrolling = False
+        self.is_animating = False
+        self.scroll_velocity = 0
+        self.last_x = 0
+        self.last_time = 0
+        self.last_scroll_pos = 0
+        self.scroll_threshold = 2
+        self.last_valid_x = 0
+        self.scroll_start_x = None
+        self.scroll_cards = []
+    
+    def init_slide_view(self):
+        # Create screens stack for slide view
+        self.screens_stack = QStackedWidget()
+        self.slide_layout.addWidget(self.screens_stack)
+        
+        # Create page indicator container
+        page_indicator_container = QWidget()
+        page_indicator_layout = QHBoxLayout(page_indicator_container)
+        page_indicator_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        page_indicator_layout.setSpacing(15)  # Space between dots
+        
+        # Create dots for each screen
+        self.page_dots = []
+        for i in range(9):  # 9 screens
+            dot = QLabel()
+            dot.setFixedSize(12, 12)  # Size of each dot
+            dot.setStyleSheet("""
+                QLabel {
+                    background-color: rgba(255, 255, 255, 0.3);
+                    border-radius: 6px;
+                }
+            """)
+            page_indicator_layout.addWidget(dot)
+            self.page_dots.append(dot)
+        
+        # Add page indicator below the screens stack
+        self.slide_layout.addWidget(page_indicator_container)
+        
+        # Update the first dot to show it's selected
+        self.page_dots[0].setStyleSheet("""
+            QLabel {
+                background-color: rgba(255, 255, 255, 0.9);
+                border-radius: 6px;
+            }
+        """)
+        
+        # Create all screens first
+        self.screens = []
+        self.cards = []
+        
+        for screen_data in self.indices_data:
+            screen = QWidget()
+            screen_layout = QGridLayout(screen)
+            screen_layout.setSpacing(20)
+            
+            # Set fixed spacing for the grid
+            screen_layout.setHorizontalSpacing(50)  # Increased spacing
+            screen_layout.setVerticalSpacing(50)  # Increased spacing
+            
+            screen_cards = []
+            
+            # Create and add all cards for this screen
+            for card_index, card_data in enumerate(screen_data):
+                card = GlassmorphicCard(
+                    card_data["title"],
+                    card_data["value"],
+                    card_data["change"]
+                )
+                row = card_index // 3
+                col = card_index % 3
+                screen_layout.addWidget(card, row, col, Qt.AlignmentFlag.AlignCenter)
+                screen_cards.append(card)
+            
+            # Set equal column and row stretches
+            for i in range(3):
+                screen_layout.setColumnStretch(i, 1)
+            for i in range(2):
+                screen_layout.setRowStretch(i, 1)
+            
+            self.screens.append(screen)
+            self.cards.append(screen_cards)
+            self.screens_stack.addWidget(screen)
+        
+        # Initialize all screens
+        for screen in self.screens:
+            screen.show()
+            screen.hide()
+        
+        self.current_screen = 0
+        self.screens_stack.setCurrentIndex(0)
+        self.screens[0].show()
+        
+        self.old_pos = None
+        self.animation_in_progress = False
+        self.screens_stack.installEventFilter(self)
+        
+    def init_scroll_view(self):
+        # Create scroll view if it doesn't exist
+        if self.scroll_view is not None:
+            return
+            
+        self.scroll_view = QWidget()
+        scroll_view_layout = QVBoxLayout(self.scroll_view)
+        scroll_view_layout.setContentsMargins(0, 0, 0, 0)
+        
         # Create a main container widget that will hold everything
-        self.main_container = QWidget()
-        self.main_container.setObjectName("mainContainer")
-        self.main_container.setStyleSheet("""
+        main_container = QWidget()
+        main_container.setObjectName("mainContainer")
+        main_container.setStyleSheet("""
             QWidget#mainContainer {
                 background: transparent;
             }
         """)
         
-        # Add main container to the layout with proper stretching
-        self.layout.addWidget(self.main_container, 0, 0, 1, 3, Qt.AlignmentFlag.AlignCenter)
-        
-        # Create a scroll area
+        # Create scroll area
         scroll_area = QWidget()
         scroll_area.setObjectName("scrollArea")
         scroll_area.setStyleSheet("""
@@ -442,15 +573,15 @@ class IndicesContent(ContentWidget):
         """)
         
         # Create main layout for the scroll area
-        main_layout = QVBoxLayout(self.main_container)
+        main_layout = QVBoxLayout(main_container)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
         # Create a container for scroll area
         content_container = QWidget()
         content_layout = QVBoxLayout(content_container)
-        content_layout.setContentsMargins(0, 0, 0, 0)  # Remove bottom margin that was for dots
-        content_layout.setSpacing(0)  # Remove spacing that was for dots
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
         
         content_layout.addWidget(scroll_area)
         
@@ -462,14 +593,11 @@ class IndicesContent(ContentWidget):
         
         # Create grid layout for the cards with proper spacing
         scroll_layout = QGridLayout(self.scroll_container)
-        scroll_layout.setContentsMargins(50, 20, 50, 20)  # Margins around the grid
-        scroll_layout.setHorizontalSpacing(50)  # Space between cards horizontally
-        scroll_layout.setVerticalSpacing(70)    # Space between cards vertically
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setHorizontalSpacing(50)
+        scroll_layout.setVerticalSpacing(50)
         
         main_layout.addWidget(content_container, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        # Initialize cards list
-        self.cards = []
         
         # Calculate dimensions
         cards_per_row = 3
@@ -478,10 +606,10 @@ class IndicesContent(ContentWidget):
         total_columns = math.ceil(total_cards / (total_rows * cards_per_row))
         
         # Calculate container width to fit all cards
-        card_width = 470  # Width of each card
-        card_height = 290  # Height of each card
-        horizontal_spacing = 50  # Space between cards horizontally
-        vertical_spacing = 70    # Space between cards vertically
+        card_width = 590  # Match card size from both.py
+        card_height = 430  # Match card size from both.py
+        horizontal_spacing = 15
+        vertical_spacing = 50  # Changed from 70 to 50 to match slide mode spacing
         
         # Calculate the width needed for one screen (3x2 grid)
         screen_width = (card_width * cards_per_row) + (horizontal_spacing * (cards_per_row - 1)) + 100
@@ -491,6 +619,7 @@ class IndicesContent(ContentWidget):
         self.scroll_container.setFixedWidth(total_width)
         
         # Create and add all cards
+        self.scroll_cards = []
         card_index = 0
         for screen_data in self.indices_data:
             screen_cards = []
@@ -510,20 +639,12 @@ class IndicesContent(ContentWidget):
                 screen_cards.append(card)
                 card_index += 1
             
-            self.cards.append(screen_cards)
-        
-        # Create a mapping from index names to card positions
-        self.index_map = {}
-        card_index = 0
-        for screen_idx, screen_data in enumerate(self.indices_data):
-            for card_idx, card_data in enumerate(screen_data):
-                self.index_map[card_data["title"]] = (screen_idx, card_idx)
-                card_index += 1
+            self.scroll_cards.append(screen_cards)
         
         # Add scrolling animation properties
         self.scroll_animation = QPropertyAnimation(self.scroll_container, b"pos")
         self.scroll_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self.scroll_animation.setDuration(500)  # 500ms duration
+        self.scroll_animation.setDuration(200)  # 500ms duration
         
         self.scroll_timer = QTimer()
         self.scroll_timer.timeout.connect(self.update_inertial_scroll)
@@ -532,15 +653,34 @@ class IndicesContent(ContentWidget):
         # Enable smooth scrolling
         self.scroll_container.installEventFilter(self)
         
-        # Set fixed dimensions for the scroll area to match original design
-        scroll_area.setFixedHeight(680)  # Height to fit 2 rows of cards
-        scroll_area.setFixedWidth(screen_width)  # Width to fit 3 cards
+        # Set fixed dimensions for the scroll area
+        scroll_area.setFixedHeight(910)  # Adjust to match the current UI
+        scroll_area.setFixedWidth(screen_width)
         
-        # Add these new instance variables for better scroll control
-        self.last_scroll_pos = 0
-        self.scroll_threshold = 2  # Minimum pixels to move before updating position
-        self.is_animating = False
-        self.last_valid_x = 0
+        # Add the scroll view to layout
+        scroll_view_layout.addWidget(main_container, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # Add scroll view to the stack
+        self.view_stack.addWidget(self.scroll_view)
+    
+    def switch_to_slide_mode(self):
+        """Switch to slide mode view"""
+        if self.current_mode == "slide":
+            return
+            
+        self.current_mode = "slide"
+        self.view_stack.setCurrentWidget(self.slide_view)
+        
+    def switch_to_scroll_mode(self):
+        """Switch to scroll mode view"""
+        if self.current_mode == "scroll":
+            return
+            
+        # Initialize scroll view if needed
+        self.init_scroll_view()
+        
+        self.current_mode = "scroll"
+        self.view_stack.setCurrentWidget(self.scroll_view)
     
     def reset_scroll_state(self):
         """Reset all scrolling-related states"""
@@ -549,9 +689,9 @@ class IndicesContent(ContentWidget):
         self.scroll_velocity = 0
         self.scroll_start_x = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        if self.scroll_timer.isActive():
+        if hasattr(self, 'scroll_timer') and self.scroll_timer.isActive():
             self.scroll_timer.stop()
-        if self.scroll_animation.state() == QPropertyAnimation.State.Running:
+        if hasattr(self, 'scroll_animation') and self.scroll_animation.state() == QPropertyAnimation.State.Running:
             self.scroll_animation.stop()
     
     def check_scroll_bounds(self, new_x):
@@ -559,8 +699,43 @@ class IndicesContent(ContentWidget):
         min_x = -self.scroll_container.width() + self.width()
         return min_x <= new_x <= 0, min_x
     
+    def update_card_data(self, index_name, value, change):
+        """Update data for both slide and scroll views"""
+        if index_name in self.index_map:
+            screen_idx, card_idx = self.index_map[index_name]
+            
+            # Update in slide view
+            if 0 <= screen_idx < len(self.cards) and 0 <= card_idx < len(self.cards[screen_idx]):
+                self.cards[screen_idx][card_idx].update_data(value, change)
+            
+            # Update in scroll view if initialized
+            if self.scroll_view is not None and self.scroll_cards:
+                if 0 <= screen_idx < len(self.scroll_cards) and 0 <= card_idx < len(self.scroll_cards[screen_idx]):
+                    self.scroll_cards[screen_idx][card_idx].update_data(value, change)
+            
+                print(f"Updated {index_name} with value: {value}, change: {change}")
+    
     def eventFilter(self, obj, event):
-        if obj == self.scroll_container:
+        # Handle slide view events
+        if obj == self.screens_stack and self.current_mode == "slide":
+            if event.type() == event.Type.MouseButtonPress:
+                if not self.animation_in_progress:
+                    self.old_pos = event.pos()
+                return True
+            
+            elif event.type() == event.Type.MouseButtonRelease:
+                if self.old_pos is not None and not self.animation_in_progress:
+                    delta = event.pos().x() - self.old_pos.x()
+                    if abs(delta) > 50:
+                        if delta > 0 and self.current_screen > 0:
+                            self.change_screen(self.current_screen - 1)
+                        elif delta < 0 and self.current_screen < self.screens_stack.count() - 1:
+                            self.change_screen(self.current_screen + 1)
+                    self.old_pos = None
+                return True
+        
+        # Handle scroll view events
+        elif obj == self.scroll_container and self.current_mode == "scroll":
             if event.type() == event.Type.MouseButtonPress:
                 try:
                     self.reset_scroll_state()
@@ -578,45 +753,43 @@ class IndicesContent(ContentWidget):
             elif event.type() == event.Type.MouseMove and self.is_scrolling:
                 try:
                     if self.scroll_start_x is not None:
-                        current_time = time.time()
-                        delta_time = max(current_time - self.last_time, 0.001)
-                        
                         current_x = event.pos().x()
                         delta = current_x - self.last_x
                         
-                        # Reduced threshold for higher sensitivity
-                        if abs(delta) < 2:  # Reduced from 3
+                        # Simple minimal threshold - ignore tiny movements
+                        if abs(delta) < 1:
                             return True
                         
-                        try:
-                            raw_velocity = delta / delta_time
-                            max_velocity = 4600  # Increased from 4000 (15% more)
-                            self.scroll_velocity = max(min(raw_velocity, max_velocity), -max_velocity)
-                        except ZeroDivisionError:
-                            self.scroll_velocity = 0
+                        # Simpler velocity calculation
+                        current_time = time.time()
+                        delta_time = max(current_time - self.last_time, 0.001)  # Prevent division by zero
+                        self.scroll_velocity = delta / delta_time
                         
+                        # Apply a reasonable velocity cap without exaggeration
+                        max_velocity = 3000
+                        self.scroll_velocity = max(min(self.scroll_velocity, max_velocity), -max_velocity)
+                        
+                        # Simple 1:1 movement with no multipliers
                         current_pos = self.scroll_container.pos().x()
-                        new_x = current_pos + (delta * 1.15)  # Increased movement by 15%
+                        new_x = current_pos + delta
                         
+                        # Check bounds and apply gentle resistance at edges
                         is_within_bounds, min_x = self.check_scroll_bounds(new_x)
                         if not is_within_bounds:
                             if new_x < min_x:
-                                resistance = (min_x - new_x) * 0.4
+                                # Apply gentle resistance at the right edge
+                                resistance = (min_x - new_x) * 0.3
                                 new_x = min_x + resistance
                             else:
-                                resistance = new_x * 0.4
+                                # Apply gentle resistance at the left edge
+                                resistance = new_x * 0.3
                                 new_x = resistance
                         
-                        # Enhanced smoothing
-                        smoothing_factor = 0.82  # Slightly reduced for more responsive feel
-                        smoothed_x = (smoothing_factor * new_x) + ((1 - smoothing_factor) * current_pos)
-                        
-                        # Only update if movement is significant
-                        if abs(smoothed_x - self.last_scroll_pos) >= 2:  # Reduced from 3
-                            rounded_x = round(smoothed_x * 2) / 2
-                            self.scroll_container.move(int(rounded_x), self.scroll_container.pos().y())
-                            self.last_scroll_pos = smoothed_x
-                            self.last_valid_x = rounded_x
+                        # Use simple integer rounding to avoid micro-movements
+                        rounded_x = int(new_x)
+                        self.scroll_container.move(rounded_x, self.scroll_container.pos().y())
+                        self.last_scroll_pos = new_x
+                        self.last_valid_x = rounded_x
                         
                         self.last_x = current_x
                         self.last_time = current_time
@@ -633,12 +806,13 @@ class IndicesContent(ContentWidget):
                         self.is_scrolling = False
                         self.setCursor(Qt.CursorShape.ArrowCursor)
                         
-                        # Adjusted velocity threshold and maximum
-                        if abs(self.scroll_velocity) > 350:  # Reduced from 400 for earlier activation
+                        # Only apply inertia if velocity is significant
+                        if abs(self.scroll_velocity) > 200:
+                            # Cap the maximum velocity for inertial scrolling
                             if self.scroll_velocity > 0:
-                                self.scroll_velocity = min(self.scroll_velocity, 2875)  # Increased from 2500 (15% more)
+                                self.scroll_velocity = min(self.scroll_velocity, 2000)
                             else:
-                                self.scroll_velocity = max(self.scroll_velocity, -2875)  # Increased from -2500 (15% more)
+                                self.scroll_velocity = max(self.scroll_velocity, -2000)
                             self.start_inertial_scroll()
                         
                         self.scroll_start_x = None
@@ -646,7 +820,7 @@ class IndicesContent(ContentWidget):
                     print(f"Error in mouse release event: {e}")
                     self.reset_scroll_state()
                 return True
-            
+        
         return super().eventFilter(obj, event)
     
     def start_inertial_scroll(self):
@@ -656,34 +830,40 @@ class IndicesContent(ContentWidget):
     
     def update_inertial_scroll(self):
         try:
-            if abs(self.scroll_velocity) < 35 or not self.is_animating:  # Reduced from 40 for longer scroll
+            # Stop when velocity gets too small
+            if abs(self.scroll_velocity) < 20 or not self.is_animating:
                 self.scroll_timer.stop()
                 self.is_animating = False
                 return
             
-            friction = 0.94  # Reduced friction for longer scroll
+            # Apply consistent friction - higher value for faster deceleration
+            friction = 0.95
             self.scroll_velocity *= friction
             
+            # Calculate movement based on velocity
             delta = self.scroll_velocity * (self.scroll_timer.interval() / 1000.0)
-            current_x = self.scroll_container.pos().x()
-            new_x = current_x + (delta * 1.15)  # Increased movement by 15%
             
+            # Apply movement directly without multipliers
+            current_x = self.scroll_container.pos().x()
+            new_x = current_x + delta
+            
+            # Handle boundaries
             is_within_bounds, min_x = self.check_scroll_bounds(new_x)
             if not is_within_bounds:
                 if new_x < min_x:
                     new_x = min_x
                 else:
                     new_x = 0
+                # Stop scrolling immediately when hitting bounds
                 self.scroll_velocity = 0
                 self.scroll_timer.stop()
                 self.is_animating = False
             
-            # Only update if movement is significant
-            if abs(new_x - self.last_scroll_pos) >= 2:  # Reduced from 3
-                rounded_x = round(new_x * 2) / 2
-                self.scroll_container.move(int(rounded_x), self.scroll_container.pos().y())
-                self.last_scroll_pos = new_x
-                self.last_valid_x = rounded_x
+            # Apply movement with integer rounding
+            rounded_x = int(new_x)
+            self.scroll_container.move(rounded_x, self.scroll_container.pos().y())
+            self.last_scroll_pos = new_x
+            self.last_valid_x = rounded_x
             
         except Exception as e:
             print(f"Error in inertial scroll: {e}")
@@ -691,12 +871,80 @@ class IndicesContent(ContentWidget):
             self.is_animating = False
             self.scroll_container.move(self.last_valid_x, self.scroll_container.pos().y())
     
-    def update_card_data(self, index_name, value, change):
-        if index_name in self.index_map:
-            screen_idx, card_idx = self.index_map[index_name]
-            if 0 <= screen_idx < len(self.cards) and 0 <= card_idx < len(self.cards[screen_idx]):
-                self.cards[screen_idx][card_idx].update_data(value, change)
-                print(f"Updated {index_name} with value: {value}, change: {change}")
+    def change_screen(self, index):
+        if index != self.current_screen and not self.animation_in_progress:
+            self.animation_in_progress = True
+            
+            # Update page indicator dots
+            self.page_dots[self.current_screen].setStyleSheet("""
+                QLabel {
+                    background-color: rgba(255, 255, 255, 0.3);
+                    border-radius: 6px;
+                }
+            """)
+            self.page_dots[index].setStyleSheet("""
+                QLabel {
+                    background-color: rgba(255, 255, 255, 0.9);
+                    border-radius: 6px;
+                }
+            """)
+            
+            direction = 1 if index > self.current_screen else -1
+            current_widget = self.screens_stack.currentWidget()
+            new_widget = self.screens_stack.widget(index)
+            
+            if current_widget and new_widget:
+                # Pre-calculate positions to reduce computation during animation
+                screen_width = self.screens_stack.width()
+                start_pos = QPoint(direction * screen_width, 0)
+                end_pos = QPoint(-direction * screen_width, 0)
+                zero_pos = QPoint(0, 0)
+                
+                # Set fixed size once before animation
+                widget_size = self.screens_stack.size()
+                current_widget.setFixedSize(widget_size)
+                new_widget.setFixedSize(widget_size)
+                
+                # Ensure both widgets are visible
+                current_widget.show()
+                new_widget.show()
+                new_widget.raise_()
+                
+                # Set initial positions
+                current_widget.move(zero_pos)
+                new_widget.move(start_pos)
+                
+                # Create animation group for parallel animations
+                anim_group = QParallelAnimationGroup(self)
+                
+                # Position animations with improved settings
+                current_anim = QPropertyAnimation(current_widget, b"pos")
+                current_anim.setDuration(300)  # Increased from 400ms to 800ms for much slower animation
+                current_anim.setStartValue(zero_pos)
+                current_anim.setEndValue(end_pos)
+                current_anim.setEasingCurve(QEasingCurve.Type.OutExpo)
+                
+                new_anim = QPropertyAnimation(new_widget, b"pos")
+                new_anim.setDuration(300)  # Increased from 400ms to 800ms for much slower animation
+                new_anim.setStartValue(start_pos)
+                new_anim.setEndValue(zero_pos)
+                new_anim.setEasingCurve(QEasingCurve.Type.OutExpo)
+                
+                # Add animations to group
+                anim_group.addAnimation(current_anim)
+                anim_group.addAnimation(new_anim)
+                
+                self.current_screen = index
+                
+                def on_animation_finished():
+                    self.animation_in_progress = False
+                    self.screens_stack.setCurrentIndex(index)
+                    # Reset widget sizes after animation
+                    current_widget.setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
+                    new_widget.setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
+                
+                anim_group.finished.connect(on_animation_finished)
+                anim_group.start()
 
 class GlassmorphicUI(QWidget):
     def __init__(self):
@@ -707,6 +955,9 @@ class GlassmorphicUI(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowState(Qt.WindowState.WindowFullScreen)
         
+        # Hide cursor for the entire application
+        # self.setCursor(Qt.CursorShape.BlankCursor)
+        
         # Get screen dimensions
         self.screen = QApplication.primaryScreen().geometry()
         
@@ -715,6 +966,7 @@ class GlassmorphicUI(QWidget):
         
         # Show the window
         self.show()
+        self.hide_cursor_completely()
         
         self.background = None
         
@@ -731,23 +983,53 @@ class GlassmorphicUI(QWidget):
             self.background.fill(QColor(20, 30, 50))
         
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setContentsMargins(20, 10, 20, 20)
         
-        self.main_layout.addStretch(5)
+        self.main_layout.addStretch(7)
         
         self.center_container = QWidget()
         center_layout = QVBoxLayout(self.center_container)
-        center_layout.setContentsMargins(0, 15, 0, 0)
-        center_layout.setSpacing(0)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.setSpacing(15)
         
-        title_layout = QHBoxLayout()
-        title_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Create a grid layout for better positioning
+        title_layout = QGridLayout()
+        title_layout.setColumnStretch(0, 1)  # Left margin stretches
+        title_layout.setColumnStretch(1, 3)  # Center column gets more stretch
+        title_layout.setColumnStretch(2, 1)  # Right margin stretches
         
+        # Create and position the centered title
         self.title_label = QLabel("NSE Indices")
-        self.title_label.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
+        self.title_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         self.title_label.setStyleSheet("color: white;")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_layout.addWidget(self.title_label)
+        
+        # Add title label to the center column
+        title_layout.addWidget(self.title_label, 0, 1, Qt.AlignmentFlag.AlignCenter)
+        
+        # Add toggle button for switching between slide and scroll modes
+        self.toggle_mode_button = QPushButton("Slide Mode")
+        self.toggle_mode_button.setFont(QFont("Segoe UI", 20))
+        self.toggle_mode_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.toggle_mode_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(60, 70, 100, 0.7);
+                color: white;
+                border-radius: 10px;
+                padding: 5px 15px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+            }
+            QPushButton:hover {
+                background-color: rgba(70, 80, 110, 0.8);
+            }
+            QPushButton:pressed {
+                background-color: rgba(50, 60, 90, 0.9);
+            }
+        """)
+        self.toggle_mode_button.clicked.connect(self.toggle_view_mode)
+        
+        # Add button to the right column
+        title_layout.addWidget(self.toggle_mode_button, 0, 2, Qt.AlignmentFlag.AlignRight)
         
         center_layout.addLayout(title_layout)
         
@@ -843,6 +1125,19 @@ class GlassmorphicUI(QWidget):
         except Exception as e:
             print(f"Error handling MQTT data: {e}")
     
+    def toggle_view_mode(self):
+        """Toggle between slide and scroll mode"""
+        current_mode = self.toggle_mode_button.text()
+        
+        if current_mode == "Slide Mode":
+            # Switch to Scroll Mode
+            self.toggle_mode_button.setText("Scroll Mode")
+            self.indices_content.switch_to_scroll_mode()
+        else:
+            # Switch to Slide Mode
+            self.toggle_mode_button.setText("Slide Mode")
+            self.indices_content.switch_to_slide_mode()
+    
     def updateDimensions(self):
         # Simplified method - always use normal orientation
         self.setGeometry(0, 0, self.screen.width(), self.screen.height())
@@ -881,8 +1176,37 @@ class GlassmorphicUI(QWidget):
         
         super().keyPressEvent(event)
     
+    def hide_cursor_completely(self):
+    # Hide cursor using Qt method
+      self.setCursor(Qt.CursorShape.BlankCursor)
+    
+    # For Windows - additional method
+      if sys.platform.startswith('win'):
+        try:
+            # Get the current cursor handle
+            cursor_info = ctypes.c_int()
+            ctypes.windll.user32.GetCursorInfo(ctypes.byref(cursor_info))
+            # Hide the cursor
+            ctypes.windll.user32.ShowCursor(False)
+        except Exception as e:
+            print(f"Error hiding Windows cursor: {e}")
+    
+    # For Linux - additional X11 method
+      elif sys.platform.startswith('linux'):
+        try:
+            # Create an invisible cursor
+            pixmap = QPixmap(1, 1)
+            pixmap.fill(Qt.transparent)
+            invisible_cursor = QCursor(pixmap)
+            QApplication.setOverrideCursor(invisible_cursor)
+            QApplication.changeOverrideCursor(invisible_cursor)
+        except Exception as e:
+            print(f"Error hiding Linux cursor: {e}")
+
     def enterEvent(self, event):
-        super().enterEvent(event)  # Just call parent method
+    # Hide cursor when mouse enters the window
+    #   self.hide_cursor_completely()
+      super().enterEvent(event)
 
     def closeEvent(self, event):
         # Disconnect MQTT client when closing the application
