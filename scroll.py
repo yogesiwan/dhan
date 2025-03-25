@@ -445,10 +445,27 @@ class IndicesContent(ContentWidget):
         self.last_x = 0
         self.last_time = 0
         self.last_scroll_pos = 0
-        self.scroll_threshold = 2
+        self.scroll_threshold = 1  # Minimal threshold for detecting movement
         self.last_valid_x = 0
         self.scroll_start_x = None
         self.scroll_cards = []
+        
+        # Simple scroll sensitivity - fixed multiplier
+        self.scroll_sensitivity = 2.5  # Fixed sensitivity for predictable response
+        
+        # Movement smoothing variables - simplified
+        self.last_movements = []
+        
+        # Tracking for slow movements
+        self.last_slow_movement_time = 0
+        self.slow_movement_threshold = 5  # Pixels per event considered "slow"
+        
+        # Initialize velocity tracking
+        self.velocity_samples = []
+        
+        # Disable any auto-alignment or snap behavior
+        self.snap_to_grid = False
+        self.should_align_cards = False
     
     def init_slide_view(self):
         # Create screens stack for slide view
@@ -589,13 +606,16 @@ class IndicesContent(ContentWidget):
         scroll_area_layout = QHBoxLayout(scroll_area)
         scroll_area_layout.setContentsMargins(0, 0, 0, 0)
         scroll_area_layout.setSpacing(0)
-        scroll_area_layout.addWidget(self.scroll_container, 0, Qt.AlignmentFlag.AlignCenter)
+        # Use explicit no-alignment to prevent Qt from auto-aligning
+        scroll_area_layout.addWidget(self.scroll_container, 0)
         
         # Create grid layout for the cards with proper spacing
         scroll_layout = QGridLayout(self.scroll_container)
         scroll_layout.setContentsMargins(0, 0, 0, 0)
         scroll_layout.setHorizontalSpacing(50)
         scroll_layout.setVerticalSpacing(50)
+        # Disable automatic alignment by explicitly setting alignment to left/top
+        scroll_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         
         main_layout.addWidget(content_container, 0, Qt.AlignmentFlag.AlignCenter)
         
@@ -616,6 +636,8 @@ class IndicesContent(ContentWidget):
         
         # Calculate total width needed for all cards
         total_width = (screen_width * total_columns)
+        # Add extra padding to ensure the last column is fully visible
+        total_width += 250  # Increased padding from 100 to 250 for more space
         self.scroll_container.setFixedWidth(total_width)
         
         # Create and add all cards
@@ -635,7 +657,8 @@ class IndicesContent(ContentWidget):
                 row = (absolute_index % (cards_per_row * total_rows)) // cards_per_row
                 col = absolute_index // (cards_per_row * total_rows) * cards_per_row + (absolute_index % cards_per_row)
                 
-                scroll_layout.addWidget(card, row, col, Qt.AlignmentFlag.AlignCenter)
+                # Add without alignment flags to prevent auto-alignment
+                scroll_layout.addWidget(card, row, col)
                 screen_cards.append(card)
                 card_index += 1
             
@@ -655,13 +678,22 @@ class IndicesContent(ContentWidget):
         
         # Set fixed dimensions for the scroll area
         scroll_area.setFixedHeight(910)  # Adjust to match the current UI
-        scroll_area.setFixedWidth(screen_width)
+        # Make sure the scroll area is wide enough to show the full card width
+        scroll_area.setFixedWidth(screen_width + 50)  # Increased buffer from 20 to 50
         
         # Add the scroll view to layout
         scroll_view_layout.addWidget(main_container, 0, Qt.AlignmentFlag.AlignCenter)
         
         # Add scroll view to the stack
         self.view_stack.addWidget(self.scroll_view)
+        
+        # Initialize velocity tracking
+        self.velocity_samples = []
+        self.last_movements = []
+        
+        # Disable any auto-alignment or snap behavior
+        self.snap_to_grid = False
+        self.should_align_cards = False
     
     def switch_to_slide_mode(self):
         """Switch to slide mode view"""
@@ -688,16 +720,39 @@ class IndicesContent(ContentWidget):
         self.is_animating = False
         self.scroll_velocity = 0
         self.scroll_start_x = None
+        self.velocity_samples = []
+        self.last_movements = []
+        self.last_slow_movement_time = 0  # Reset slow movement time tracking
         self.setCursor(Qt.CursorShape.ArrowCursor)
         if hasattr(self, 'scroll_timer') and self.scroll_timer.isActive():
             self.scroll_timer.stop()
         if hasattr(self, 'scroll_animation') and self.scroll_animation.state() == QPropertyAnimation.State.Running:
             self.scroll_animation.stop()
     
+    def smooth_movement(self, delta):
+        """Apply simple smoothing to movement - basic and reliable approach"""
+        # For very small movements, use as-is to avoid vibration during slow scrolling
+        if abs(delta) < 3:
+            return delta
+            
+        # Keep only a small history of movements to prevent lag
+        self.last_movements.append(delta)
+        if len(self.last_movements) > 3:  # Keep a small window for responsiveness
+            self.last_movements.pop(0)
+        
+        # Simple average - equal weighting for stability
+        return sum(self.last_movements) / len(self.last_movements) if self.last_movements else delta
+    
     def check_scroll_bounds(self, new_x):
         """Check if the new position is within valid bounds"""
-        min_x = -self.scroll_container.width() + self.width()
-        return min_x <= new_x <= 0, min_x
+        # Calculate the minimum x position (rightmost boundary)
+        # Adding small pixel buffer to prevent edge cases
+        min_x = -self.scroll_container.width() + self.width() + 5
+        
+        # Ensure position is within valid range
+        is_within_bounds = min_x <= new_x <= 0
+        
+        return is_within_bounds, min_x
     
     def update_card_data(self, index_name, value, change):
         """Update data for both slide and scroll views"""
@@ -734,17 +789,33 @@ class IndicesContent(ContentWidget):
                     self.old_pos = None
                 return True
         
-        # Handle scroll view events
+        # Handle scroll view events - Updated with dashboard.py logic
         elif obj == self.scroll_container and self.current_mode == "scroll":
             if event.type() == event.Type.MouseButtonPress:
                 try:
+                    # Interrupt any ongoing animations immediately
+                    if self.is_animating:
+                        self.scroll_timer.stop()
+                        self.is_animating = False
+                    
+                    # Reset all states to ensure clean start
                     self.reset_scroll_state()
+                    
+                    # Store initial position and time
                     self.scroll_start_x = event.pos().x()
                     self.last_x = event.pos().x()
                     self.last_time = time.time()
+                    
+                    # Mark as scrolling and store valid position
                     self.is_scrolling = True
                     self.last_valid_x = self.scroll_container.pos().x()
+                    
+                    # Change cursor to indicate grabbing
                     self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                    
+                    # Initialize velocity tracking with a clean slate
+                    self.velocity_samples = []
+                    self.last_movements = []
                 except Exception as e:
                     print(f"Error in mouse press event: {e}")
                     self.reset_scroll_state()
@@ -753,49 +824,97 @@ class IndicesContent(ContentWidget):
             elif event.type() == event.Type.MouseMove and self.is_scrolling:
                 try:
                     if self.scroll_start_x is not None:
+                        # Get current position
                         current_x = event.pos().x()
+                        
+                        # Calculate delta (current - last)
                         delta = current_x - self.last_x
                         
-                        # Simple minimal threshold - ignore tiny movements
-                        if abs(delta) < 1:
+                        # Skip tiny movements to reduce jitter
+                        if abs(delta) < 1:  # Use minimal threshold
                             return True
                         
-                        # Simpler velocity calculation
+                        # Current time for velocity and timing calculations
                         current_time = time.time()
+                        
+                        # Track slow movements to improve release behavior
+                        if abs(delta) < self.slow_movement_threshold:
+                            self.last_slow_movement_time = current_time
+                        
+                        # Apply fixed sensitivity for consistent feel
+                        delta = delta * self.scroll_sensitivity
+                        
+                        # Special handling for slow movements - less smoothing to prevent vibration
+                        if abs(delta) < 5:
+                            smoothed_delta = delta  # Use raw delta for small movements
+                        else:
+                            # Apply basic smoothing for stability with larger movements
+                            smoothed_delta = self.smooth_movement(delta)
+                        
+                        # Calculate time difference
                         delta_time = max(current_time - self.last_time, 0.001)  # Prevent division by zero
-                        self.scroll_velocity = delta / delta_time
                         
-                        # Apply a reasonable velocity cap without exaggeration
-                        max_velocity = 3000
-                        self.scroll_velocity = max(min(self.scroll_velocity, max_velocity), -max_velocity)
+                        # Detect very slow movements
+                        is_slow_movement = abs(delta) < 3
                         
-                        # Simple 1:1 movement with no multipliers
+                        # Calculate velocity with special handling for slow movements
+                        if is_slow_movement:
+                            # Use lower velocity for slow movements to prevent unwanted inertia
+                            current_velocity = smoothed_delta / (delta_time * 2)  # Half the velocity for slow movements
+                        else:
+                            # Normal velocity calculation for regular movements
+                            current_velocity = smoothed_delta / delta_time
+                        
+                        # Apply reasonable velocity cap
+                        max_velocity = 5000  # Cap velocity to reasonable limits
+                        current_velocity = max(min(current_velocity, max_velocity), -max_velocity)
+                        
+                        # Store velocity sample with special handling for slow movements
+                        if is_slow_movement:
+                            # For slow movements, add near-zero velocity to encourage stopping
+                            self.velocity_samples.append(current_velocity * 0.5)  # Further reduce velocity impact
+                        else:
+                            # Normal velocity tracking for regular movements
+                            self.velocity_samples.append(current_velocity)
+                        
+                        # Limit sample size
+                        if len(self.velocity_samples) > 5:  # Keep last 5 samples
+                            self.velocity_samples.pop(0)
+                        
+                        # Simple average of recent velocities
+                        self.scroll_velocity = sum(self.velocity_samples) / len(self.velocity_samples)
+                        
+                        # Calculate new position with direct mapping
                         current_pos = self.scroll_container.pos().x()
-                        new_x = current_pos + delta
+                        new_x = current_pos + smoothed_delta
                         
                         # Check bounds and apply gentle resistance at edges
                         is_within_bounds, min_x = self.check_scroll_bounds(new_x)
                         if not is_within_bounds:
                             if new_x < min_x:
-                                # Apply gentle resistance at the right edge
-                                resistance = (min_x - new_x) * 0.3
+                                # Apply resistance at the right edge
+                                resistance = (min_x - new_x) * 0.3  # Standard edge resistance
                                 new_x = min_x + resistance
                             else:
-                                # Apply gentle resistance at the left edge
-                                resistance = new_x * 0.3
+                                # Apply resistance at the left edge
+                                resistance = new_x * 0.3  # Standard edge resistance
                                 new_x = resistance
                         
-                        # Use simple integer rounding to avoid micro-movements
-                        rounded_x = int(new_x)
+                        # Use math.floor for more consistent movement direction
+                        rounded_x = math.floor(new_x)  
                         self.scroll_container.move(rounded_x, self.scroll_container.pos().y())
+                        
+                        # Store positions for later use
                         self.last_scroll_pos = new_x
                         self.last_valid_x = rounded_x
                         
+                        # Update tracking variables for next iteration
                         self.last_x = current_x
                         self.last_time = current_time
                         
                 except Exception as e:
                     print(f"Error in mouse move event: {e}")
+                    # Safely restore to last valid position
                     self.scroll_container.move(self.last_valid_x, self.scroll_container.pos().y())
                     self.reset_scroll_state()
                 return True
@@ -803,18 +922,14 @@ class IndicesContent(ContentWidget):
             elif event.type() == event.Type.MouseButtonRelease:
                 try:
                     if self.is_scrolling:
+                        # Reset interaction states
                         self.is_scrolling = False
                         self.setCursor(Qt.CursorShape.ArrowCursor)
                         
-                        # Only apply inertia if velocity is significant
-                        if abs(self.scroll_velocity) > 200:
-                            # Cap the maximum velocity for inertial scrolling
-                            if self.scroll_velocity > 0:
-                                self.scroll_velocity = min(self.scroll_velocity, 2000)
-                            else:
-                                self.scroll_velocity = max(self.scroll_velocity, -2000)
-                            self.start_inertial_scroll()
+                        # Set velocity to 0 to disable inertial scrolling completely
+                        self.scroll_velocity = 0
                         
+                        # Clean up
                         self.scroll_start_x = None
                 except Exception as e:
                     print(f"Error in mouse release event: {e}")
@@ -831,37 +946,45 @@ class IndicesContent(ContentWidget):
     def update_inertial_scroll(self):
         try:
             # Stop when velocity gets too small
-            if abs(self.scroll_velocity) < 20 or not self.is_animating:
+            if abs(self.scroll_velocity) < 10 or not self.is_animating:  # Lower threshold to stop sooner
                 self.scroll_timer.stop()
                 self.is_animating = False
                 return
             
-            # Apply consistent friction - higher value for faster deceleration
-            friction = 0.95
-            self.scroll_velocity *= friction
+            # Apply strong friction for faster deceleration
+            self.scroll_velocity *= 0.92  # Higher friction for quicker stopping
             
             # Calculate movement based on velocity
             delta = self.scroll_velocity * (self.scroll_timer.interval() / 1000.0)
             
-            # Apply movement directly without multipliers
+            # If delta is too small, stop scrolling to prevent micro-movements
+            if abs(delta) < 1.0:
+                self.scroll_timer.stop()
+                self.is_animating = False
+                return
+                
+            # Get current position and calculate new position
             current_x = self.scroll_container.pos().x()
             new_x = current_x + delta
             
-            # Handle boundaries
+            # Check boundaries
             is_within_bounds, min_x = self.check_scroll_bounds(new_x)
             if not is_within_bounds:
                 if new_x < min_x:
-                    new_x = min_x
+                    new_x = min_x  # Stop at right boundary
                 else:
-                    new_x = 0
-                # Stop scrolling immediately when hitting bounds
+                    new_x = 0  # Stop at left boundary
+                
+                # Stop scrolling when hitting a boundary
                 self.scroll_velocity = 0
                 self.scroll_timer.stop()
                 self.is_animating = False
             
-            # Apply movement with integer rounding
-            rounded_x = int(new_x)
+            # Apply movement with standard rounding for consistency
+            rounded_x = math.floor(new_x)  # Use floor instead of int for consistent direction
             self.scroll_container.move(rounded_x, self.scroll_container.pos().y())
+            
+            # Store the positions
             self.last_scroll_pos = new_x
             self.last_valid_x = rounded_x
             
@@ -869,6 +992,7 @@ class IndicesContent(ContentWidget):
             print(f"Error in inertial scroll: {e}")
             self.scroll_timer.stop()
             self.is_animating = False
+            # Safely restore position
             self.scroll_container.move(self.last_valid_x, self.scroll_container.pos().y())
     
     def change_screen(self, index):
