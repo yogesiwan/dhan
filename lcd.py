@@ -632,6 +632,11 @@ class IndicesContent(ContentWidget):
         
         # Calculate total width needed for all cards
         total_width = (screen_width * total_columns)
+        
+        # Reduce the overall width to eliminate extra space at the end
+        # Only subtract 5% of screen width to ensure last column is fully visible
+        total_width -= int(screen_width * 0.05)
+        
         self.scroll_container.setFixedWidth(total_width)
         
         # Create and add all cards
@@ -1135,8 +1140,15 @@ class GlassmorphicUI(QWidget):
         
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.main_layout.addStretch(5)
+
+        # Further reduce top stretch to move content more upward
+        self.main_layout.addStretch(1)  # Reduced from 2 to 1
+
+        self.center_container = QWidget()
+        center_layout = QVBoxLayout(self.center_container)
+        # Further reduce top margin
+        center_layout.setContentsMargins(0, 0, 0, 0)  # Reduced from 5 to 0
+        center_layout.setSpacing(0)
         
         # Create a header container with absolute positioning for title and button
         header_container = QWidget()
@@ -1208,19 +1220,13 @@ class GlassmorphicUI(QWidget):
         # Connect resize event to reposition elements
         header_container.resizeEvent = lambda event: repositionElements()
         
-        self.center_container = QWidget()
-        center_layout = QVBoxLayout(self.center_container)
-        center_layout.setContentsMargins(0, 15, 0, 0)
-        center_layout.setSpacing(0)
-        
-        # Add the header container at the top
-        center_layout.addWidget(header_container)
-        
         self.indices_content = IndicesContent()
+        center_layout.addWidget(header_container)
         center_layout.addWidget(self.indices_content)
         
         self.main_layout.addWidget(self.center_container)
         
+        # Keep bottom stretch the same to maintain overall balance
         self.main_layout.addStretch(13)
         
         self.key_sequence = ""
