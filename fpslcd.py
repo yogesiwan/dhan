@@ -1111,6 +1111,13 @@ class GlassmorphicUI(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowState(Qt.WindowState.WindowFullScreen)
         
+        # Add FPS tracking variables
+        self.frame_times = []
+        self.last_frame_time = time.time()
+        self.fps_update_timer = QTimer()
+        self.fps_update_timer.timeout.connect(self.update_fps)
+        self.fps_update_timer.start(1000)  # Update FPS every second
+        
         # Hide cursor for the entire application
         # self.setCursor(Qt.CursorShape.BlankCursor)  # Commented out for testing
         
@@ -1150,30 +1157,38 @@ class GlassmorphicUI(QWidget):
         center_layout.setContentsMargins(0, 0, 0, 0)  # Reduced from 5 to 0
         center_layout.setSpacing(0)
         
-        # Create a header container with absolute positioning for title and button
+        # Create a header container
         header_container = QWidget()
-        header_container.setFixedHeight(70)  # Increased height for the header
+        header_container.setFixedHeight(70)  # Fixed height for header
+        header_layout = QHBoxLayout(header_container)
+        header_layout.setContentsMargins(20, 0, 20, 0)
         
-        # Use absolute layout to position elements precisely
-        header_container.setLayout(QHBoxLayout())
-        header_container.layout().setContentsMargins(20, 0, 20, 0)
-        
-        # Create and style the title with absolute positioning
-        self.title_label = QLabel("NSE Indices", header_container)
-        self.title_label.setFont(QFont("Segoe UI", 30, QFont.Weight.Bold))  # Increased size further
-        self.title_label.setStyleSheet("""
-            color: white;
-            background-color: transparent;
-            padding: 5px 15px;
+        # Create FPS counter label
+        self.fps_label = QLabel("FPS: 0")
+        self.fps_label.setFont(QFont("Segoe UI", 16))
+        self.fps_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: rgba(60, 70, 100, 0.7);
+                border-radius: 8px;
+                padding: 5px 10px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+            }
         """)
-        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.title_label.raise_()  # Bring to front to ensure proper z-index
+        self.fps_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.fps_label.setFixedWidth(120)  # Increased from 100 to 120
         
-        # Create and style the toggle button
-        self.toggle_mode_button = QPushButton("Slide Mode", header_container)
+        # Create title label
+        self.title_label = QLabel("NSE Indices")
+        self.title_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
+        self.title_label.setStyleSheet("color: white;")
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Create toggle button
+        self.toggle_mode_button = QPushButton("Slide Mode")
         self.toggle_mode_button.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         self.toggle_mode_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.toggle_mode_button.setFixedSize(220, 60)  # Large button size
+        self.toggle_mode_button.setFixedSize(220, 60)
         self.toggle_mode_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(60, 70, 100, 0.7);
@@ -1191,37 +1206,18 @@ class GlassmorphicUI(QWidget):
         """)
         self.toggle_mode_button.clicked.connect(self.toggle_view_mode)
         
-        # Position the elements using absolute positioning
-        def repositionElements():
-            # Get container width
-            container_width = header_container.width()
-            
-            # Make sure the title has enough space and is perfectly centered
-            title_width = self.title_label.sizeHint().width() + 30  # Add extra padding for safety
-            title_height = self.title_label.sizeHint().height() + 10  # Add vertical padding
-            
-            # Center the title exactly in the available space
-            self.title_label.setGeometry(
-                (container_width - title_width) // 2,
-                (header_container.height() - title_height) // 2,
-                title_width,
-                title_height
-            )
-            
-            # Position button on the right side with some margin
-            button_right_margin = container_width * 0.15  # 15% from right edge
-            self.toggle_mode_button.setGeometry(
-                int(container_width - self.toggle_mode_button.width() - button_right_margin),
-                (header_container.height() - self.toggle_mode_button.height()) // 2,  # Center vertically
-                self.toggle_mode_button.width(),
-                self.toggle_mode_button.height()
-            )
+        # Add widgets to header layout
+        header_layout.addStretch(1)        # Add stretch before FPS label to move it right
+        header_layout.addWidget(self.fps_label)
+        header_layout.addStretch(5)        # Increased stretch to center title better
+        header_layout.addWidget(self.title_label)
+        header_layout.addStretch(5)        # Increased stretch to match left side
+        header_layout.addWidget(self.toggle_mode_button)
         
-        # Connect resize event to reposition elements
-        header_container.resizeEvent = lambda event: repositionElements()
+        # Add header to center layout
+        center_layout.addWidget(header_container)
         
         self.indices_content = IndicesContent()
-        center_layout.addWidget(header_container)
         center_layout.addWidget(self.indices_content)
         
         self.main_layout.addWidget(self.center_container)
@@ -1332,11 +1328,25 @@ class GlassmorphicUI(QWidget):
         self.showMinimized()
     
     def paintEvent(self, event):
+        # Calculate FPS
+        current_time = time.time()
+        self.frame_times.append(current_time - self.last_frame_time)
+        self.last_frame_time = current_time
+        
+        # Keep only last 60 frames for FPS calculation
+        if len(self.frame_times) > 60:
+            self.frame_times.pop(0)
+            
         painter = QPainter(self)
         if hasattr(self, 'background') and self.background and not self.background.isNull():
             painter.drawPixmap(self.rect(), self.background)
         else:
             painter.fillRect(self.rect(), QColor(20, 30, 50))
+            
+    def update_fps(self):
+        if self.frame_times:
+            fps = len(self.frame_times) / sum(self.frame_times)
+            self.fps_label.setText(f"FPS: {int(fps)}")
     
     def keyPressEvent(self, event):
         if event.key() >= Qt.Key.Key_A and event.key() <= Qt.Key.Key_Z:
